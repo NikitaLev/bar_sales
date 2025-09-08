@@ -40,7 +40,21 @@ class IngredientEditor(QWidget):
         self.table.setRowCount(len(rows))
         for i, row in enumerate(rows):
             for j, value in enumerate(row):
-                self.table.setItem(i, j, QTableWidgetItem(str(value)))
+                # округление не целочисленных значений до 7 знаков после запятой
+                if j == 2:
+                    try:
+                        num = float(value)
+                    except (TypeError, ValueError):
+                        text = str(value)
+                    else:
+                        if num.is_integer():
+                            text = str(int(num))
+                        else:
+                            text = f"{num:.7f}"
+                else:
+                    text = str(value)
+
+                self.table.setItem(i, j, QTableWidgetItem(text))
         conn.close()
 
     def add_ingredient(self):
