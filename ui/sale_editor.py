@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
-    QPushButton, QHBoxLayout, QDialog, QLabel, QComboBox, QCheckBox, QMessageBox
+    QPushButton, QHBoxLayout, QLineEdit, QDialog, QLabel, QComboBox, QCheckBox, QMessageBox
 )
 from PyQt5.QtGui import QColor
 from models import get_sales, get_sale_items, update_sale_status
@@ -12,12 +12,49 @@ class SaleEditor(QWidget):
         self.setMinimumSize(800, 600)
         self.layout = QVBoxLayout()
 
+         # — фильтры —
+        fl = QHBoxLayout()
+        # дата
+        fl.addWidget(QLabel("Дата:"))
+        self.date_filter = QLineEdit()
+        self.date_filter.setPlaceholderText("YYYY-MM-DD")
+        fl.addWidget(self.date_filter)
+        # сумма
+        fl.addWidget(QLabel("Сумма:"))
+        self.sum_filter = QLineEdit()
+        self.sum_filter.setPlaceholderText("часть суммы")
+        fl.addWidget(self.sum_filter)
+        # оплата
+        fl.addWidget(QLabel("Оплачено:"))
+        self.paid_filter = QComboBox()
+        self.paid_filter.addItems(["Да", "Нет"])
+        fl.addWidget(self.paid_filter)
+        # метод
+        fl.addWidget(QLabel("Метод:"))
+        self.method_filter = QComboBox()
+        self.method_filter.addItems(["Все", "Нал", "Безнал"])
+        fl.addWidget(self.method_filter)
+        # гость
+        fl.addWidget(QLabel("Гость:"))
+        self.guest_filter = QLineEdit()
+        self.guest_filter.setPlaceholderText("имя гостя")
+        fl.addWidget(self.guest_filter)
+
+        self.layout.addLayout(fl)
+
         self.table = QTableWidget()
         self.table.setColumnCount(6)  # ✅ добавлена колонка "Гость"
         self.table.setHorizontalHeaderLabels(["ID", "Дата", "Сумма", "Оплачено", "Метод", "Гость"])
+        self.table.setSortingEnabled(True)
         self.table.cellDoubleClicked.connect(self.edit_sale)
         self.table.setColumnWidth(1, 150)
         self.layout.addWidget(self.table)
+
+        self.date_filter.textChanged.connect(self.apply_filters)
+        self.sum_filter.textChanged.connect(self.apply_filters)
+        self.paid_filter.currentIndexChanged.connect(self.apply_filters)
+        self.method_filter.currentIndexChanged.connect(self.apply_filters)
+        self.guest_filter.textChanged.connect(self.apply_filters)
 
         btn_row = QHBoxLayout()
         refresh_btn = QPushButton("Обновить")
@@ -28,6 +65,34 @@ class SaleEditor(QWidget):
         self.setLayout(self.layout)
 
         self.load_sales()
+
+    def apply_filters(self):
+        df = self.date_filter.text().lower().strip()
+        sf = self.sum_filter.text().lower().strip()
+        pf = self.paid_filter.currentText()
+        mf = self.method_filter.currentText()
+        gf = self.guest_filter.text().lower().strip()
+
+        for row in range(self.table.rowCount()):
+            date = self.table.item(row, 1).text().lower()
+            total = self.table.item(row, 2).text().lower()
+            paid = self.table.item(row, 3).text()
+            method = self.table.item(row, 4).text()
+            guest = self.table.item(row, 5).text().lower()
+
+            show = True
+            if df and df not in date:
+                show = False
+            if sf and sf not in total:
+                show = False
+            if pf != "Все" and paid != pf:
+                show = False
+            if mf != "Все" and method != mf:
+                show = False
+            if gf and gf not in guest:
+                show = False
+
+            self.table.setRowHidden(row, not show)
 
     def load_sales(self):
         sales = get_sales()
@@ -43,6 +108,9 @@ class SaleEditor(QWidget):
             color = QColor(200, 255, 200) if paid else QColor(255, 200, 200)
             for col in range(6):
                 self.table.item(i, col).setBackground(color)
+        
+        # после заполнения — применяем текущие фильтры
+        self.apply_filters()
 
     def edit_sale(self, row, column):
         sale_id = int(self.table.item(row, 0).text())
