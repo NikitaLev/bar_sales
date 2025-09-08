@@ -14,7 +14,9 @@ class SupplierEditor(QWidget):
         self.table.setColumnCount(2)
         self.table.setHorizontalHeaderLabels(["ID", "Название"])
         self.table.cellDoubleClicked.connect(self.edit_supplier)
+        self.table.setColumnWidth(1, 200)
         self.layout.addWidget(self.table)
+        self.setMinimumSize(600, 400)
 
         btn_row = QHBoxLayout()
         add_btn = QPushButton("Добавить")

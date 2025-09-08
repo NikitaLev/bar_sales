@@ -9,12 +9,14 @@ class SaleEditor(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Счета")
+        self.setMinimumSize(800, 600)
         self.layout = QVBoxLayout()
 
         self.table = QTableWidget()
         self.table.setColumnCount(6)  # ✅ добавлена колонка "Гость"
         self.table.setHorizontalHeaderLabels(["ID", "Дата", "Сумма", "Оплачено", "Метод", "Гость"])
         self.table.cellDoubleClicked.connect(self.edit_sale)
+        self.table.setColumnWidth(1, 150)
         self.layout.addWidget(self.table)
 
         btn_row = QHBoxLayout()
@@ -66,6 +68,7 @@ class SaleForm(QDialog):
         self.layout.addWidget(self.paid_checkbox)
         self.layout.addWidget(QLabel("Метод оплаты"))
         self.layout.addWidget(self.payment_method)
+        self.setMinimumSize(400, 300)
 
         self.item_table = QTableWidget()
         self.item_table.setColumnCount(3)
