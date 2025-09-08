@@ -18,16 +18,23 @@ class SaleEditor(QWidget):
         fl.addWidget(QLabel("Дата:"))
         self.date_filter = QLineEdit()
         self.date_filter.setPlaceholderText("YYYY-MM-DD")
-        fl.addWidget(self.date_filter)
-        # сумма
-        fl.addWidget(QLabel("Сумма:"))
-        self.sum_filter = QLineEdit()
-        self.sum_filter.setPlaceholderText("часть суммы")
-        fl.addWidget(self.sum_filter)
+        fl.addWidget(self.date_filter)   
+
+         # диапазон по сумме
+        fl.addWidget(QLabel("Сумма от:"))
+        self.sum_min = QLineEdit()
+        self.sum_min.setPlaceholderText("мин")
+        fl.addWidget(self.sum_min)
+
+        fl.addWidget(QLabel("до:"))
+        self.sum_max = QLineEdit()
+        self.sum_max.setPlaceholderText("макс")
+        fl.addWidget(self.sum_max)
+
         # оплата
         fl.addWidget(QLabel("Оплачено:"))
         self.paid_filter = QComboBox()
-        self.paid_filter.addItems(["Да", "Нет"])
+        self.paid_filter.addItems(["Все","Да", "Нет"])
         fl.addWidget(self.paid_filter)
         # метод
         fl.addWidget(QLabel("Метод:"))
@@ -40,6 +47,17 @@ class SaleEditor(QWidget):
         self.guest_filter.setPlaceholderText("имя гостя")
         fl.addWidget(self.guest_filter)
 
+        # после fl.addWidget(self.guest_filter)
+        apply_btn = QPushButton("Применить фильтр")
+        fl.addWidget(apply_btn)
+
+        # подключаем фильтрацию только по клику
+        apply_btn.clicked.connect(self.apply_filters)
+
+        reset_btn = QPushButton("Сбросить фильтры")
+        fl.addWidget(reset_btn)
+        reset_btn.clicked.connect(self.reset_filters)
+
         self.layout.addLayout(fl)
 
         self.table = QTableWidget()
@@ -50,11 +68,6 @@ class SaleEditor(QWidget):
         self.table.setColumnWidth(1, 150)
         self.layout.addWidget(self.table)
 
-        self.date_filter.textChanged.connect(self.apply_filters)
-        self.sum_filter.textChanged.connect(self.apply_filters)
-        self.paid_filter.currentIndexChanged.connect(self.apply_filters)
-        self.method_filter.currentIndexChanged.connect(self.apply_filters)
-        self.guest_filter.textChanged.connect(self.apply_filters)
 
         btn_row = QHBoxLayout()
         refresh_btn = QPushButton("Обновить")
@@ -66,25 +79,65 @@ class SaleEditor(QWidget):
 
         self.load_sales()
 
+    def reset_filters(self):
+        self.date_filter.clear()
+        self.sum_min.clear()
+        self.sum_max.clear()
+        self.paid_filter.setCurrentIndex(0)
+        self.method_filter.setCurrentIndex(0)
+        self.guest_filter.clear()
+        self.apply_filters()
+
+
     def apply_filters(self):
+        # текстовые фильтры
         df = self.date_filter.text().lower().strip()
-        sf = self.sum_filter.text().lower().strip()
         pf = self.paid_filter.currentText()
         mf = self.method_filter.currentText()
         gf = self.guest_filter.text().lower().strip()
 
+        # диапазон суммы
+        sm = None
+        sx = None
+        try:
+            sm_text = self.sum_min.text().strip()
+            if sm_text:
+                sm = float(sm_text)
+        except ValueError:
+            sm = None
+
+        try:
+            sx_text = self.sum_max.text().strip()
+            if sx_text:
+                sx = float(sx_text)
+        except ValueError:
+            sx = None
+
         for row in range(self.table.rowCount()):
             date = self.table.item(row, 1).text().lower()
-            total = self.table.item(row, 2).text().lower()
+            total_str = self.table.item(row, 2).text().split()[0]
             paid = self.table.item(row, 3).text()
             method = self.table.item(row, 4).text()
             guest = self.table.item(row, 5).text().lower()
 
+            # текущее значение суммы
+            try:
+                current_sum = float(total_str)
+            except ValueError:
+                current_sum = None
+
             show = True
+            # фильтр по дате
             if df and df not in date:
                 show = False
-            if sf and sf not in total:
+
+            # фильтр по сумме-диапазону
+            if sm is not None and (current_sum is None or current_sum < sm):
                 show = False
+            if sx is not None and (current_sum is None or current_sum > sx):
+                show = False
+
+            # остальные фильтры
             if pf != "Все" and paid != pf:
                 show = False
             if mf != "Все" and method != mf:
@@ -93,6 +146,7 @@ class SaleEditor(QWidget):
                 show = False
 
             self.table.setRowHidden(row, not show)
+
 
     def load_sales(self):
         sales = get_sales()
