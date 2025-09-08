@@ -1,9 +1,13 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
-    QPushButton, QHBoxLayout, QLineEdit, QDialog, QLabel, QComboBox, QCheckBox, QMessageBox
+    QPushButton, QHBoxLayout, QLineEdit, QDateEdit, QDialog, QLabel, QComboBox, QCheckBox, QMessageBox
 )
+from PyQt5.QtCore import QDate
+
 from PyQt5.QtGui import QColor
 from models import get_sales, get_sale_items, update_sale_status
+from datetime import datetime
+import datetime
 
 class SaleEditor(QWidget):
     def __init__(self):
@@ -14,22 +18,49 @@ class SaleEditor(QWidget):
 
          # — фильтры —
         fl = QHBoxLayout()
-        # дата
-        fl.addWidget(QLabel("Дата:"))
-        self.date_filter = QLineEdit()
-        self.date_filter.setPlaceholderText("YYYY-MM-DD")
-        fl.addWidget(self.date_filter)   
 
-         # диапазон по сумме
-        fl.addWidget(QLabel("Сумма от:"))
+        date_column = QVBoxLayout()
+
+        date_column.addWidget(QLabel("Дата от:"))
+        self.date_from = QDateEdit()
+        self.date_from.setCalendarPopup(True)
+        self.date_from.setDisplayFormat("yyyy-MM-dd")
+        # по умолчанию — вчера
+        self.date_from.setDate(QDate.currentDate().addDays(-1))
+        self.date_from.setFixedWidth(100)
+        date_column.addWidget(self.date_from)
+
+
+        date_column.addWidget(QLabel("До:"))
+        self.date_to = QDateEdit()
+        self.date_to.setCalendarPopup(True)
+        self.date_to.setDisplayFormat("yyyy-MM-dd")
+        # по умолчанию — сегодня
+        self.date_to.setDate(QDate.currentDate())
+        self.date_to.setFixedWidth(100)
+        date_column.addWidget(self.date_to)
+        
+
+
+        # диапазон по сумме
+        price_column = QVBoxLayout()
+
+        price_column.addWidget(QLabel("Сумма от:"))
         self.sum_min = QLineEdit()
         self.sum_min.setPlaceholderText("мин")
-        fl.addWidget(self.sum_min)
+        self.sum_min.setFixedWidth(100)
+        price_column.addWidget(self.sum_min)
 
-        fl.addWidget(QLabel("до:"))
+
+        price_column.addWidget(QLabel("До:"))
         self.sum_max = QLineEdit()
         self.sum_max.setPlaceholderText("макс")
-        fl.addWidget(self.sum_max)
+        self.sum_max.setFixedWidth(100)
+        price_column.addWidget(self.sum_max)
+
+        fl.addLayout(date_column)
+        fl.addLayout(price_column)
+
 
         # оплата
         fl.addWidget(QLabel("Оплачено:"))
@@ -80,7 +111,8 @@ class SaleEditor(QWidget):
         self.load_sales()
 
     def reset_filters(self):
-        self.date_filter.clear()
+        self.date_from.setDate(QDate.currentDate().addDays(-1))
+        self.date_to.setDate(QDate.currentDate())
         self.sum_min.clear()
         self.sum_max.clear()
         self.paid_filter.setCurrentIndex(0)
@@ -91,7 +123,8 @@ class SaleEditor(QWidget):
 
     def apply_filters(self):
         # текстовые фильтры
-        df = self.date_filter.text().lower().strip()
+        df = self.date_from.date().toPyDate()
+        dt = self.date_to.date().toPyDate()
         pf = self.paid_filter.currentText()
         mf = self.method_filter.currentText()
         gf = self.guest_filter.text().lower().strip()
@@ -106,6 +139,7 @@ class SaleEditor(QWidget):
         except ValueError:
             sm = None
 
+
         try:
             sx_text = self.sum_max.text().strip()
             if sx_text:
@@ -114,7 +148,18 @@ class SaleEditor(QWidget):
             sx = None
 
         for row in range(self.table.rowCount()):
-            date = self.table.item(row, 1).text().lower()
+            date_str = self.table.item(row, 1).text()
+            show = True
+            # фильтр по дате-диапазону
+            date_str = self.table.item(row, 1).text()
+            try:
+                current_dt = datetime.datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S").date()
+            except:
+                current_dt = None
+
+            if not current_dt or current_dt < df or current_dt > dt:
+                show = False
+
             total_str = self.table.item(row, 2).text().split()[0]
             paid = self.table.item(row, 3).text()
             method = self.table.item(row, 4).text()
@@ -125,11 +170,6 @@ class SaleEditor(QWidget):
                 current_sum = float(total_str)
             except ValueError:
                 current_sum = None
-
-            show = True
-            # фильтр по дате
-            if df and df not in date:
-                show = False
 
             # фильтр по сумме-диапазону
             if sm is not None and (current_sum is None or current_sum < sm):
@@ -146,6 +186,9 @@ class SaleEditor(QWidget):
                 show = False
 
             self.table.setRowHidden(row, not show)
+    def try_float(s):
+        try: return float(s.strip())
+        except: return None
 
 
     def load_sales(self):
