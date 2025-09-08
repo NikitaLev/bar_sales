@@ -1,9 +1,13 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
-    QPushButton, QHBoxLayout, QDialog, QLabel, QComboBox, QCheckBox, QMessageBox
+    QPushButton, QHBoxLayout, QLineEdit, QDateEdit, QDialog, QLabel, QComboBox, QCheckBox, QMessageBox
 )
+from PyQt5.QtCore import QDate
+
 from PyQt5.QtGui import QColor
 from models import get_sales, get_sale_items, update_sale_status
+from datetime import datetime
+import datetime
 
 class SaleEditor(QWidget):
     def __init__(self):
@@ -12,12 +16,88 @@ class SaleEditor(QWidget):
         self.setMinimumSize(800, 600)
         self.layout = QVBoxLayout()
 
+         # — фильтры —
+        fl = QHBoxLayout()
+
+        QV_column = QVBoxLayout()
+
+        fl1 = QHBoxLayout()
+        fl2 = QHBoxLayout()
+
+        fl1.addWidget(QLabel("Дата от:"))
+        self.date_from = QDateEdit()
+        self.date_from.setCalendarPopup(True)
+        self.date_from.setDisplayFormat("yyyy-MM-dd")
+        # по умолчанию — вчера
+        self.date_from.setDate(QDate.currentDate().addDays(-1))
+        self.date_from.setFixedWidth(100)
+        fl1.addWidget(self.date_from)
+
+
+        fl1.addWidget(QLabel("До:"))
+        self.date_to = QDateEdit()
+        self.date_to.setCalendarPopup(True)
+        self.date_to.setDisplayFormat("yyyy-MM-dd")
+        # по умолчанию — сегодня
+        self.date_to.setDate(QDate.currentDate())
+        self.date_to.setFixedWidth(100)
+        fl1.addWidget(self.date_to)
+
+
+        fl2.addWidget(QLabel("Сумма от:"))
+        self.sum_min = QLineEdit()
+        self.sum_min.setPlaceholderText("мин")
+        self.sum_min.setFixedWidth(100)
+        fl2.addWidget(self.sum_min)
+
+
+        fl2.addWidget(QLabel("До:"))
+        self.sum_max = QLineEdit()
+        self.sum_max.setPlaceholderText("макс")
+        self.sum_max.setFixedWidth(100)
+        fl2.addWidget(self.sum_max)
+
+        QV_column.addLayout(fl1)
+        QV_column.addLayout(fl2)
+        
+        fl.addLayout(QV_column)
+        # оплата
+        fl.addWidget(QLabel("Оплачено:"))
+        self.paid_filter = QComboBox()
+        self.paid_filter.addItems(["Все","Да", "Нет"])
+        fl.addWidget(self.paid_filter)
+        # метод
+        fl.addWidget(QLabel("Метод:"))
+        self.method_filter = QComboBox()
+        self.method_filter.addItems(["Все", "Нал", "Безнал"])
+        fl.addWidget(self.method_filter)
+        # гость
+        fl.addWidget(QLabel("Гость:"))
+        self.guest_filter = QLineEdit()
+        self.guest_filter.setPlaceholderText("имя гостя")
+        fl.addWidget(self.guest_filter)
+
+        # после fl.addWidget(self.guest_filter)
+        apply_btn = QPushButton("Применить фильтр")
+        fl.addWidget(apply_btn)
+
+        # подключаем фильтрацию только по клику
+        apply_btn.clicked.connect(self.apply_filters)
+
+        reset_btn = QPushButton("Сбросить фильтры")
+        fl.addWidget(reset_btn)
+        reset_btn.clicked.connect(self.reset_filters)
+
+        self.layout.addLayout(fl)
+
         self.table = QTableWidget()
         self.table.setColumnCount(6)  # ✅ добавлена колонка "Гость"
         self.table.setHorizontalHeaderLabels(["ID", "Дата", "Сумма", "Оплачено", "Метод", "Гость"])
+        self.table.setSortingEnabled(True)
         self.table.cellDoubleClicked.connect(self.edit_sale)
         self.table.setColumnWidth(1, 150)
         self.layout.addWidget(self.table)
+
 
         btn_row = QHBoxLayout()
         refresh_btn = QPushButton("Обновить")
@@ -28,6 +108,87 @@ class SaleEditor(QWidget):
         self.setLayout(self.layout)
 
         self.load_sales()
+
+    def reset_filters(self):
+        self.date_from.setDate(QDate.currentDate().addDays(-1))
+        self.date_to.setDate(QDate.currentDate())
+        self.sum_min.clear()
+        self.sum_max.clear()
+        self.paid_filter.setCurrentIndex(0)
+        self.method_filter.setCurrentIndex(0)
+        self.guest_filter.clear()
+        self.apply_filters()
+
+
+    def apply_filters(self):
+        # текстовые фильтры
+        df = self.date_from.date().toPyDate()
+        dt = self.date_to.date().toPyDate()
+        pf = self.paid_filter.currentText()
+        mf = self.method_filter.currentText()
+        gf = self.guest_filter.text().lower().strip()
+
+        # диапазон суммы
+        sm = None
+        sx = None
+        try:
+            sm_text = self.sum_min.text().strip()
+            if sm_text:
+                sm = float(sm_text)
+        except ValueError:
+            sm = None
+
+
+        try:
+            sx_text = self.sum_max.text().strip()
+            if sx_text:
+                sx = float(sx_text)
+        except ValueError:
+            sx = None
+
+        for row in range(self.table.rowCount()):
+            date_str = self.table.item(row, 1).text()
+            show = True
+            # фильтр по дате-диапазону
+            date_str = self.table.item(row, 1).text()
+            try:
+                current_dt = datetime.datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S").date()
+            except:
+                current_dt = None
+
+            if not current_dt or current_dt < df or current_dt > dt:
+                show = False
+
+            total_str = self.table.item(row, 2).text().split()[0]
+            paid = self.table.item(row, 3).text()
+            method = self.table.item(row, 4).text()
+            guest = self.table.item(row, 5).text().lower()
+
+            # текущее значение суммы
+            try:
+                current_sum = float(total_str)
+            except ValueError:
+                current_sum = None
+
+            # фильтр по сумме-диапазону
+            if sm is not None and (current_sum is None or current_sum < sm):
+                show = False
+            if sx is not None and (current_sum is None or current_sum > sx):
+                show = False
+
+            # остальные фильтры
+            if pf != "Все" and paid != pf:
+                show = False
+            if mf != "Все" and method != mf:
+                show = False
+            if gf and gf not in guest:
+                show = False
+
+            self.table.setRowHidden(row, not show)
+    def try_float(s):
+        try: return float(s.strip())
+        except: return None
+
 
     def load_sales(self):
         sales = get_sales()
@@ -43,6 +204,9 @@ class SaleEditor(QWidget):
             color = QColor(200, 255, 200) if paid else QColor(255, 200, 200)
             for col in range(6):
                 self.table.item(i, col).setBackground(color)
+        
+        # после заполнения — применяем текущие фильтры
+        self.apply_filters()
 
     def edit_sale(self, row, column):
         sale_id = int(self.table.item(row, 0).text())
