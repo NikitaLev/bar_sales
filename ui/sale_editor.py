@@ -16,6 +16,7 @@ class SaleEditor(QWidget):
         self.table.setHorizontalHeaderLabels(["ID", "Дата", "Сумма", "Оплачено", "Метод", "Гость"])
         self.table.cellDoubleClicked.connect(self.edit_sale)
         self.layout.addWidget(self.table)
+        self.setMinimumSize(800, 600)
 
         btn_row = QHBoxLayout()
         refresh_btn = QPushButton("Обновить")

@@ -19,6 +19,7 @@ class ProductEditor(QWidget):
         self.table.setHorizontalHeaderLabels(["ID", "Название", "Цена"])
         self.table.cellDoubleClicked.connect(self.edit_product)
         self.layout.addWidget(self.table)
+        self.setMinimumSize(800, 600)
 
         btn_row = QHBoxLayout()
         add_btn = QPushButton("Добавить напиток")

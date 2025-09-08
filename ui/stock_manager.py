@@ -16,6 +16,7 @@ class StockManager(QWidget):
         self.stock_table.setHorizontalHeaderLabels(["Название", "Остаток", "Ед. изм."])
         self.layout.addWidget(QLabel("Все ингредиенты"))
         self.layout.addWidget(self.stock_table)
+        self.setMinimumSize(800, 600)
 
         # 🔹 Кнопки
         btn_row = QHBoxLayout()

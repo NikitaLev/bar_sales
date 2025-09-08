@@ -15,6 +15,7 @@ class IngredientEditor(QWidget):
         self.table.setHorizontalHeaderLabels(["ID", "Название", "Остаток", "Ед. изм."])
         self.table.cellDoubleClicked.connect(self.edit_ingredient)
         self.layout.addWidget(self.table)
+        self.setMinimumSize(800, 600)
 
         btn_row = QHBoxLayout()
         add_btn = QPushButton("Добавить")
