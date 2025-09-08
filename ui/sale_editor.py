@@ -19,49 +19,48 @@ class SaleEditor(QWidget):
          # — фильтры —
         fl = QHBoxLayout()
 
-        date_column = QVBoxLayout()
+        QV_column = QVBoxLayout()
 
-        date_column.addWidget(QLabel("Дата от:"))
+        fl1 = QHBoxLayout()
+        fl2 = QHBoxLayout()
+
+        fl1.addWidget(QLabel("Дата от:"))
         self.date_from = QDateEdit()
         self.date_from.setCalendarPopup(True)
         self.date_from.setDisplayFormat("yyyy-MM-dd")
         # по умолчанию — вчера
         self.date_from.setDate(QDate.currentDate().addDays(-1))
         self.date_from.setFixedWidth(100)
-        date_column.addWidget(self.date_from)
+        fl1.addWidget(self.date_from)
 
 
-        date_column.addWidget(QLabel("До:"))
+        fl1.addWidget(QLabel("До:"))
         self.date_to = QDateEdit()
         self.date_to.setCalendarPopup(True)
         self.date_to.setDisplayFormat("yyyy-MM-dd")
         # по умолчанию — сегодня
         self.date_to.setDate(QDate.currentDate())
         self.date_to.setFixedWidth(100)
-        date_column.addWidget(self.date_to)
-        
+        fl1.addWidget(self.date_to)
 
 
-        # диапазон по сумме
-        price_column = QVBoxLayout()
-
-        price_column.addWidget(QLabel("Сумма от:"))
+        fl2.addWidget(QLabel("Сумма от:"))
         self.sum_min = QLineEdit()
         self.sum_min.setPlaceholderText("мин")
         self.sum_min.setFixedWidth(100)
-        price_column.addWidget(self.sum_min)
+        fl2.addWidget(self.sum_min)
 
 
-        price_column.addWidget(QLabel("До:"))
+        fl2.addWidget(QLabel("До:"))
         self.sum_max = QLineEdit()
         self.sum_max.setPlaceholderText("макс")
         self.sum_max.setFixedWidth(100)
-        price_column.addWidget(self.sum_max)
+        fl2.addWidget(self.sum_max)
 
-        fl.addLayout(date_column)
-        fl.addLayout(price_column)
-
-
+        QV_column.addLayout(fl1)
+        QV_column.addLayout(fl2)
+        
+        fl.addLayout(QV_column)
         # оплата
         fl.addWidget(QLabel("Оплачено:"))
         self.paid_filter = QComboBox()
