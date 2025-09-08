@@ -4,7 +4,6 @@ from ui.main_window import MainWindow  # Главное окно с плитка
 from ui.product_editor import ProductEditor
 
 def main():
-    # Инициализация базы данных
     init_db()
 
     # Запуск GUI-приложения
