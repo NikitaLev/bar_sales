@@ -18,6 +18,7 @@ class ProductEditor(QWidget):
         self.table.setColumnCount(3)
         self.table.setHorizontalHeaderLabels(["ID", "Название", "Цена"])
         self.table.cellDoubleClicked.connect(self.edit_product)
+        self.table.setColumnWidth(1, 150)
         self.layout.addWidget(self.table)
         self.setMinimumSize(800, 600)
 

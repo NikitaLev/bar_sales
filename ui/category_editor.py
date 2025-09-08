@@ -14,6 +14,7 @@ class CategoryEditor(QWidget):
         self.table.setColumnCount(2)
         self.table.setHorizontalHeaderLabels(["ID", "Название"])
         self.table.cellDoubleClicked.connect(self.edit_category)
+        self.table.setColumnWidth(1, 150)
         self.layout.addWidget(self.table)
         self.setMinimumSize(800, 600)
 

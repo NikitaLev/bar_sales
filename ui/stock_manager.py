@@ -15,6 +15,7 @@ class StockManager(QWidget):
         self.stock_table.setColumnCount(3)
         self.stock_table.setHorizontalHeaderLabels(["Название", "Остаток", "Ед. изм."])
         self.layout.addWidget(QLabel("Все ингредиенты"))
+        self.stock_table.setColumnWidth(0, 200)
         self.layout.addWidget(self.stock_table)
         self.setMinimumSize(800, 600)
 

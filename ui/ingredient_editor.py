@@ -14,6 +14,7 @@ class IngredientEditor(QWidget):
         self.table.setColumnCount(4)
         self.table.setHorizontalHeaderLabels(["ID", "Название", "Остаток", "Ед. изм."])
         self.table.cellDoubleClicked.connect(self.edit_ingredient)
+        self.table.setColumnWidth(1, 250)
         self.layout.addWidget(self.table)
         self.setMinimumSize(800, 600)
 
