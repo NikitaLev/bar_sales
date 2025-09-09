@@ -5,7 +5,9 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import QDate
 
-from PyQt5.QtGui import QColor
+from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
+
+from PyQt5.QtGui import QColor, QTextDocument
 from models import get_sales, get_sale_items, update_sale_status
 from datetime import datetime
 import datetime
@@ -346,6 +348,14 @@ class SaleForm(QDialog):
         filename = f"cheque_{self.sale_id}.html"
         with open(filename, "w", encoding="utf-8") as f:
             f.write(html)
+        
+        printer = QPrinter(QPrinter.HighResolution)
+        
+        dialog = QPrintDialog(printer, self)
+        if dialog.exec_() == QPrintDialog.Accepted:
+            doc = QTextDocument()
+            doc.setHtml(html)
+            doc.print_(printer)
 
         QMessageBox.information(self, "Печать", f"Чек сохранён: {os.path.abspath(filename)}")
 
