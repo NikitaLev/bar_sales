@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtCore import QSize
-from models import get_categories, get_products_by_category, create_sale
+from models import get_categories, get_products_by_category, create_sale, get_last_sale_id
 from db_init import clear_all_tables
 from ui.product_editor import ProductEditor
 from ui.ingredient_editor import IngredientEditor
@@ -18,6 +18,7 @@ from ui.report_viewer import ReportViewer
 import shutil
 import os
 from PyQt5.QtWidgets import QFileDialog, QMessageBox
+from receipt_printer import print_receipt
 
 class MainWindow(QWidget):
     def __init__(self):
@@ -78,7 +79,7 @@ class MainWindow(QWidget):
 
         action_row = QHBoxLayout()
         print_btn = QPushButton("Напечатать счёт")
-        print_btn.clicked.connect(self.print_receipt)
+        print_btn.clicked.connect(self.on_print)
         action_row.addWidget(print_btn)
 
         finish_btn = QPushButton("Завершить продажу")
@@ -88,6 +89,7 @@ class MainWindow(QWidget):
         layout.addLayout(action_row)
         tab.setLayout(layout)
         return tab
+    
     def create_report_tab(self):
         tab = QWidget()
         layout = QVBoxLayout()
@@ -198,8 +200,21 @@ class MainWindow(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Ошибка", str(e))
 
-    def print_receipt(self):
-        QMessageBox.information(self, "Печать", "Функция печати будет реализована позже.")
+    def on_print(self):
+        # 1) собираем данные из текущей продажи
+        items = []
+        for row in range(self.sale_table.rowCount()):
+            name = self.sale_table.item(row, 0).text()
+            price = float(self.sale_table.item(row, 1).text())
+            qty   = float(self.sale_table.item(row, 2).text())
+            items.append((name, qty, price))
+
+        guest  = self.guest_name_input.text().strip() or "Гость"
+        paid   = bool(self.paid_checkbox.isChecked())
+        method = self.payment_method.currentText()
+
+        sale_id = get_last_sale_id() + 1
+        print_receipt(self, sale_id, guest, paid, method, items)
 
     def open_product_editor(self):
         self.editor = ProductEditor()

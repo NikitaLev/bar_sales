@@ -1,13 +1,18 @@
+import os
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
     QPushButton, QHBoxLayout, QLineEdit, QDateEdit, QDialog, QLabel, QComboBox, QCheckBox, QMessageBox
 )
 from PyQt5.QtCore import QDate
 
-from PyQt5.QtGui import QColor
+from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
+
+from PyQt5.QtGui import QColor, QTextDocument
 from models import get_sales, get_sale_items, update_sale_status
 from datetime import datetime
 import datetime
+
+from receipt_printer import print_receipt
 
 class SaleEditor(QWidget):
     def __init__(self):
@@ -247,6 +252,7 @@ class SaleForm(QDialog):
 
         print_btn = QPushButton("Печать")
         btn_row.addWidget(print_btn)
+        print_btn.clicked.connect(self.print_receipt)
 
         self.layout.addLayout(btn_row)
         self.setLayout(self.layout)
@@ -278,3 +284,13 @@ class SaleForm(QDialog):
         QMessageBox.information(self, "Готово", "Статус обновлён.")
         self.accept()
 
+    def print_receipt(self):
+        guest = self.guest_label.text().replace("Гость: ", "")
+        method = self.payment_method.currentText()
+
+        items = get_sale_items(self.sale_id)
+
+
+        
+        print_receipt(self, self.sale_id, guest, self.paid_checkbox.isChecked(), method, items)
+        
