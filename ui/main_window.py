@@ -3,8 +3,8 @@ from PyQt5.QtWidgets import (
     QGridLayout, QTableWidget, QTableWidgetItem, QComboBox, QCheckBox,
     QMessageBox, QScrollArea, QTabWidget, QLineEdit
 )
-from PyQt5.QtGui import QIcon, QPixmap
-from PyQt5.QtCore import QSize
+from PyQt5.QtGui import QIcon, QPixmap, QFont
+from PyQt5.QtCore import QSize, Qt
 from models import get_categories, get_products_by_category, create_sale, get_last_sale_id
 from db_init import clear_all_tables
 from ui.product_editor import ProductEditor
@@ -65,16 +65,36 @@ class MainWindow(QWidget):
 
         self.guest_name_input = QLineEdit()
         self.guest_name_input.setPlaceholderText("Имя гостя (по умолчанию: Гость)")
-        layout.addWidget(QLabel("Гость"))
-        layout.addWidget(self.guest_name_input)
 
         payment_row = QHBoxLayout()
         self.payment_method = QComboBox()
         self.payment_method.addItems(["Нал", "Безнал"])
         self.paid_checkbox = QCheckBox("Оплачено")
+        payment_row.addWidget(QLabel("Гость"))
+        payment_row.addWidget(self.guest_name_input)
         payment_row.addWidget(QLabel("Метод оплаты:"))
         payment_row.addWidget(self.payment_method)
         payment_row.addWidget(self.paid_checkbox)
+
+        # ↓↓↓ Итоговая сумма по товарам ↓↓↓
+        total_row = QHBoxLayout()
+        total_row.addStretch()  # отодвигаем лейбл вправо
+
+        self.total_label = QLabel("Итого: 0.00 BYN")
+        # делаем крупным и жирным, как на кассе
+        font = QFont()
+        font.setPointSize(18)
+        font.setBold(True)
+        self.total_label.setFont(font)
+        # подсветка (фон и паддинги)
+        self.total_label.setStyleSheet("""
+            background-color: #f0f0f0;
+            padding: 6px 12px;
+            border-radius: 4px;
+        """)
+        self.total_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+        payment_row.addWidget(self.total_label)
         layout.addLayout(payment_row)
 
         action_row = QHBoxLayout()
@@ -100,6 +120,19 @@ class MainWindow(QWidget):
         tab.setLayout(layout)
         return tab
 
+    def update_total(self):
+        total = 0.0
+        for row in range(self.sale_table.rowCount()):
+            price_item = self.sale_table.item(row, 1)
+            qty_item   = self.sale_table.item(row, 2)
+            if price_item and qty_item:
+                try:
+                    price = float(price_item.text())
+                    qty   = float(qty_item.text())
+                    total += price * qty
+                except ValueError:
+                    pass
+        self.total_label.setText(f"Итого: {total:.2f} BYN")
 
     def create_admin_tab(self):
         tab = QWidget()
@@ -182,6 +215,7 @@ class MainWindow(QWidget):
             self.sale_table.setItem(i, 0, QTableWidgetItem(name))
             self.sale_table.setItem(i, 1, QTableWidgetItem(f"{price:.2f}"))
             self.sale_table.setItem(i, 2, QTableWidgetItem(str(qty)))
+        self.update_total()
 
     def finish_sale(self):
         if not self.sale_items:
