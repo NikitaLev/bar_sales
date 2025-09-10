@@ -213,12 +213,8 @@ class MainWindow(QWidget):
         paid   = bool(self.paid_checkbox.isChecked())
         method = self.payment_method.currentText()
 
-        sale_id = get_last_sale_id()
+        sale_id = get_last_sale_id() + 1
         print_receipt(self, sale_id, guest, paid, method, items)
-
-
-    def print_receipt(self):
-        QMessageBox.information(self, "Печать", "Функция печати будет реализована позже.")
 
     def open_product_editor(self):
         self.editor = ProductEditor()
