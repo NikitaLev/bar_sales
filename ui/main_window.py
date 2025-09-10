@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QGridLayout, QTableWidget, QTableWidgetItem, QComboBox, QCheckBox,
-    QMessageBox, QScrollArea, QTabWidget, QLineEdit
+    QMessageBox, QScrollArea, QTabWidget, QLineEdit, QHeaderView
 )
 from PyQt5.QtGui import QIcon, QPixmap, QFont
 from PyQt5.QtCore import QSize, Qt
@@ -19,6 +19,7 @@ import shutil
 import os
 from PyQt5.QtWidgets import QFileDialog, QMessageBox
 from receipt_printer import print_receipt
+from functools import partial
 
 class MainWindow(QWidget):
     def __init__(self):
@@ -58,8 +59,15 @@ class MainWindow(QWidget):
         layout.addWidget(self.product_scroll)
 
         self.sale_table = QTableWidget()
-        self.sale_table.setColumnCount(3)
-        self.sale_table.setHorizontalHeaderLabels(["Название", "Цена", "Кол-во"])
+        self.sale_table.setColumnCount(4)
+        self.sale_table.setHorizontalHeaderLabels(
+            ["Название", "Цена", "Кол-во", ""]
+        )
+        # чтобы колонка с кнопками не растягивалась
+        self.sale_table.horizontalHeader().setSectionResizeMode(3, 
+            QHeaderView.ResizeToContents
+        )
+
         layout.addWidget(QLabel("Текущий счёт"))
         layout.addWidget(self.sale_table)
 
@@ -230,7 +238,23 @@ class MainWindow(QWidget):
             self.sale_table.setItem(i, 0, QTableWidgetItem(name))
             self.sale_table.setItem(i, 1, QTableWidgetItem(f"{price:.2f}"))
             self.sale_table.setItem(i, 2, QTableWidgetItem(str(qty)))
+
+            btn = QPushButton("–")
+            btn.setFixedSize(20, 20)
+            btn.clicked.connect(partial(self.remove_from_sale, i))
+            self.sale_table.setCellWidget(i, 3, btn)
         self.update_total()
+
+    def remove_from_sale(self, row_index):
+        pid, name, price, qty = self.sale_items[row_index]
+
+        if qty > 1:
+            self.sale_items[row_index] = (pid, name, price, qty - 1)
+        else:
+            # удаляем всю позицию
+            self.sale_items.pop(row_index)
+
+        self.refresh_sale_table()
 
     def finish_sale(self):
         if not self.sale_items:
