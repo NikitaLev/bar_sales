@@ -12,6 +12,8 @@ from models import get_sales, get_sale_items, update_sale_status
 from datetime import datetime
 import datetime
 
+from receipt_printer import print_receipt
+
 class SaleEditor(QWidget):
     def __init__(self):
         super().__init__()
@@ -284,78 +286,11 @@ class SaleForm(QDialog):
 
     def print_receipt(self):
         guest = self.guest_label.text().replace("Гость: ", "")
-        paid = "Оплачено" if self.paid_checkbox.isChecked() else "Не оплачено"
         method = self.payment_method.currentText()
 
         items = get_sale_items(self.sale_id)
 
-        total_sum = sum(qty * price for name, qty, price in items)
 
-        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        # Шаблон HTML
-        html = f"""
-        <!DOCTYPE html>
-        <html lang="ru">
-        <head>
-          <meta charset="utf-8">
-          <title>Чек #{self.sale_id}</title>
-          <style>
-            body {{ font-family: sans-serif; max-width: 300px; }}
-            h2, h3 {{ text-align: center; margin: 0; }}
-            table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
-            th, td {{ padding: 4px; border-bottom: 1px dashed #444; }}
-            .right {{ text-align: right; }}
-          </style>
-        </head>
-        <body>
-          <h2>ИП «КОММУНА»</h2>
-          <h3>Чек №{self.sale_id}</h3>
-          <p>
-            Адрес: Тот самый адрес<br>
-            УНП: 123456789<br>
-            Касса: 01<br>
-            Дата: {now}<br>
-            Гость: {guest}<br>
-            Статус: {paid}, {method}
-          </p>
-          <table>
-            <tr><th>Товар</th><th>Кол-во</th><th class="right">Цена</th></tr>
-        """
-
-        # Строки таблицы с товарами
-        for name, qty, price in items:
-            line_sum = qty * price
-            html += (
-                f"<tr>"
-                f"<td>{name}</td>"
-                f"<td class='right'>{qty:.3f}</td>"
-                f"<td class='right'>{line_sum:.2f}</td>"
-                f"</tr>"
-            )
-
-        # Вывод итоговой суммы
-        html += f"""
-          </table>
-          <h3 class="right">Итого: {total_sum:.2f} BYN</h3>
-          <p style="text-align:center; margin-top:20px;">
-            Спасибо за покупку!
-          </p>
-        </body>
-        </html>
-        """
-
-        filename = f"cheque_{self.sale_id}.html"
-        with open(filename, "w", encoding="utf-8") as f:
-            f.write(html)
         
-        printer = QPrinter(QPrinter.HighResolution)
+        print_receipt(self, self.sale_id, guest, self.paid_checkbox.isChecked(), method, items)
         
-        dialog = QPrintDialog(printer, self)
-        if dialog.exec_() == QPrintDialog.Accepted:
-            doc = QTextDocument()
-            doc.setHtml(html)
-            doc.print_(printer)
-
-        QMessageBox.information(self, "Печать", f"Чек сохранён: {os.path.abspath(filename)}")
-

@@ -320,6 +320,14 @@ def get_detailed_sales(start, end):
     conn.close()
     return detailed
 
+def get_last_sale_id():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM sales ORDER BY id DESC LIMIT 1")
+    row = cursor.fetchone()
+    conn.close()
+    return row[0] if row else None
+
 def generate_receipt_html(sale_id):
     conn = get_connection()
     cursor = conn.cursor()
