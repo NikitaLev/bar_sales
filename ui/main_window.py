@@ -76,7 +76,7 @@ class MainWindow(QWidget):
         payment_row.addWidget(self.payment_method)
         payment_row.addWidget(self.paid_checkbox)
 
-        # ↓↓↓ Итоговая сумма по товарам ↓↓↓
+        # Итоговая сумма по товарам
         total_row = QHBoxLayout()
         total_row.addStretch()  # отодвигаем лейбл вправо
 
@@ -101,6 +101,10 @@ class MainWindow(QWidget):
         print_btn = QPushButton("Напечатать счёт")
         print_btn.clicked.connect(self.on_print)
         action_row.addWidget(print_btn)
+
+        clear_btn = QPushButton("Очистить счёт")
+        clear_btn.clicked.connect(self.clear_sale)
+        action_row.addWidget(clear_btn)
 
         finish_btn = QPushButton("Завершить продажу")
         finish_btn.clicked.connect(self.finish_sale)
@@ -133,6 +137,17 @@ class MainWindow(QWidget):
                 except ValueError:
                     pass
         self.total_label.setText(f"Итого: {total:.2f} BYN")
+
+    def clear_sale(self):
+        self.sale_table.setRowCount(0)
+        self.sale_items.clear() 
+
+        self.guest_name_input.clear()
+
+        self.payment_method.setCurrentIndex(0)
+        self.paid_checkbox.setChecked(False)
+
+        self.update_total() 
 
     def create_admin_tab(self):
         tab = QWidget()
