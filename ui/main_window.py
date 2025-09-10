@@ -239,10 +239,25 @@ class MainWindow(QWidget):
             self.sale_table.setItem(i, 1, QTableWidgetItem(f"{price:.2f}"))
             self.sale_table.setItem(i, 2, QTableWidgetItem(str(qty)))
 
-            btn = QPushButton("–")
-            btn.setFixedSize(20, 20)
+            # Контейнер для кнопки
+            cell_widget = QWidget()
+            cell_layout = QHBoxLayout(cell_widget)
+            cell_layout.setContentsMargins(0, 0, 0, 0)
+            cell_layout.setSpacing(0)
+            cell_layout.setAlignment(Qt.AlignCenter)
+
+            # Кнопка «Удалить»
+            btn = QPushButton("Удалить")
+            btn.setFixedSize(80, 24)
+            btn.setFlat(True)
+            btn.setStyleSheet("""
+                color: #c0392b;
+                font-size: 14px;
+                background: transparent;
+            """)    
             btn.clicked.connect(partial(self.remove_from_sale, i))
             self.sale_table.setCellWidget(i, 3, btn)
+
         self.update_total()
 
     def remove_from_sale(self, row_index):
