@@ -1,10 +1,10 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QGridLayout, QTableWidget, QTableWidgetItem, QComboBox, QCheckBox,
-    QMessageBox, QScrollArea, QTabWidget, QLineEdit
+    QMessageBox, QScrollArea, QTabWidget, QLineEdit, QHeaderView
 )
-from PyQt5.QtGui import QIcon, QPixmap
-from PyQt5.QtCore import QSize
+from PyQt5.QtGui import QIcon, QPixmap, QFont
+from PyQt5.QtCore import QSize, Qt
 from models import get_categories, get_products_by_category, create_sale, get_last_sale_id
 from db_init import clear_all_tables
 from ui.product_editor import ProductEditor
@@ -19,6 +19,7 @@ import shutil
 import os
 from PyQt5.QtWidgets import QFileDialog, QMessageBox
 from receipt_printer import print_receipt
+from functools import partial
 
 class MainWindow(QWidget):
     def __init__(self):
@@ -58,29 +59,60 @@ class MainWindow(QWidget):
         layout.addWidget(self.product_scroll)
 
         self.sale_table = QTableWidget()
-        self.sale_table.setColumnCount(3)
-        self.sale_table.setHorizontalHeaderLabels(["Название", "Цена", "Кол-во"])
+        self.sale_table.setColumnCount(4)
+        self.sale_table.setHorizontalHeaderLabels(
+            ["Название", "Цена", "Кол-во", ""]
+        )
+        # чтобы колонка с кнопками не растягивалась
+        self.sale_table.horizontalHeader().setSectionResizeMode(3, 
+            QHeaderView.ResizeToContents
+        )
+
         layout.addWidget(QLabel("Текущий счёт"))
         layout.addWidget(self.sale_table)
 
         self.guest_name_input = QLineEdit()
         self.guest_name_input.setPlaceholderText("Имя гостя (по умолчанию: Гость)")
-        layout.addWidget(QLabel("Гость"))
-        layout.addWidget(self.guest_name_input)
 
         payment_row = QHBoxLayout()
         self.payment_method = QComboBox()
         self.payment_method.addItems(["Нал", "Безнал"])
         self.paid_checkbox = QCheckBox("Оплачено")
+        payment_row.addWidget(QLabel("Гость"))
+        payment_row.addWidget(self.guest_name_input)
         payment_row.addWidget(QLabel("Метод оплаты:"))
         payment_row.addWidget(self.payment_method)
         payment_row.addWidget(self.paid_checkbox)
+
+        # Итоговая сумма по товарам
+        total_row = QHBoxLayout()
+        total_row.addStretch()  # отодвигаем лейбл вправо
+
+        self.total_label = QLabel("Итого: 0.00 BYN")
+        # делаем крупным и жирным, как на кассе
+        font = QFont()
+        font.setPointSize(18)
+        font.setBold(True)
+        self.total_label.setFont(font)
+        # подсветка (фон и паддинги)
+        self.total_label.setStyleSheet("""
+            background-color: #f0f0f0;
+            padding: 6px 12px;
+            border-radius: 4px;
+        """)
+        self.total_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+        payment_row.addWidget(self.total_label)
         layout.addLayout(payment_row)
 
         action_row = QHBoxLayout()
         print_btn = QPushButton("Напечатать счёт")
         print_btn.clicked.connect(self.on_print)
         action_row.addWidget(print_btn)
+
+        clear_btn = QPushButton("Очистить счёт")
+        clear_btn.clicked.connect(self.clear_sale)
+        action_row.addWidget(clear_btn)
 
         finish_btn = QPushButton("Завершить продажу")
         finish_btn.clicked.connect(self.finish_sale)
@@ -100,6 +132,30 @@ class MainWindow(QWidget):
         tab.setLayout(layout)
         return tab
 
+    def update_total(self):
+        total = 0.0
+        for row in range(self.sale_table.rowCount()):
+            price_item = self.sale_table.item(row, 1)
+            qty_item   = self.sale_table.item(row, 2)
+            if price_item and qty_item:
+                try:
+                    price = float(price_item.text())
+                    qty   = float(qty_item.text())
+                    total += price * qty
+                except ValueError:
+                    pass
+        self.total_label.setText(f"Итого: {total:.2f} BYN")
+
+    def clear_sale(self):
+        self.sale_table.setRowCount(0)
+        self.sale_items.clear() 
+
+        self.guest_name_input.clear()
+
+        self.payment_method.setCurrentIndex(0)
+        self.paid_checkbox.setChecked(False)
+
+        self.update_total() 
 
     def create_admin_tab(self):
         tab = QWidget()
@@ -182,6 +238,38 @@ class MainWindow(QWidget):
             self.sale_table.setItem(i, 0, QTableWidgetItem(name))
             self.sale_table.setItem(i, 1, QTableWidgetItem(f"{price:.2f}"))
             self.sale_table.setItem(i, 2, QTableWidgetItem(str(qty)))
+
+            # Контейнер для кнопки
+            cell_widget = QWidget()
+            cell_layout = QHBoxLayout(cell_widget)
+            cell_layout.setContentsMargins(0, 0, 0, 0)
+            cell_layout.setSpacing(0)
+            cell_layout.setAlignment(Qt.AlignCenter)
+
+            # Кнопка «Удалить»
+            btn = QPushButton("Удалить")
+            btn.setFixedSize(80, 24)
+            btn.setFlat(True)
+            btn.setStyleSheet("""
+                color: #c0392b;
+                font-size: 14px;
+                background: transparent;
+            """)    
+            btn.clicked.connect(partial(self.remove_from_sale, i))
+            self.sale_table.setCellWidget(i, 3, btn)
+
+        self.update_total()
+
+    def remove_from_sale(self, row_index):
+        pid, name, price, qty = self.sale_items[row_index]
+
+        if qty > 1:
+            self.sale_items[row_index] = (pid, name, price, qty - 1)
+        else:
+            # удаляем всю позицию
+            self.sale_items.pop(row_index)
+
+        self.refresh_sale_table()
 
     def finish_sale(self):
         if not self.sale_items:
