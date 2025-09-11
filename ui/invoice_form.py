@@ -15,6 +15,10 @@ class InvoiceForm(QDialog):
         self.invoice_id = invoice_id
         self.layout = QVBoxLayout()
 
+        self.layout.addWidget(QLabel("Номер накладной"))
+        self.number_input = QLineEdit()
+        self.layout.addWidget(self.number_input)
+
         self.date_edit = QDateEdit()
         self.date_edit.setCalendarPopup(True)
         self.date_edit.setDate(QDate.currentDate())
@@ -64,10 +68,10 @@ class InvoiceForm(QDialog):
         conn = get_connection()
         cursor = conn.cursor()
 
-        cursor.execute("SELECT date, supplier_id FROM invoices WHERE id = ?", (self.invoice_id,))
+        cursor.execute("SELECT date, supplier_id, number FROM invoices WHERE id = ?", (self.invoice_id,))
         result = cursor.fetchone()
         if result:
-            date_str, supplier_id = result
+            date_str, supplier_id, number = result
             self.date_edit.setDate(QDate.fromString(date_str, "yyyy-MM-dd"))
             index = next((i for i, (sid, _) in enumerate(self.suppliers) if sid == supplier_id), 0)
             self.supplier_combo.setCurrentIndex(index)
@@ -137,14 +141,16 @@ class InvoiceForm(QDialog):
         conn = get_connection()
         cursor = conn.cursor()
 
+        number = self.number_input.text()
         date_str = self.date_edit.date().toString("yyyy-MM-dd")
         supplier_id = self.supplier_combo.currentData()
 
+
         if not self.invoice_id:
-            cursor.execute("INSERT INTO invoices (date, supplier_id) VALUES (?, ?)", (date_str, supplier_id))
+            cursor.execute("INSERT INTO invoices (date, supplier_id, number) VALUES (?, ?, ?)", (date_str, supplier_id, number))
             self.invoice_id = cursor.lastrowid
         else:
-            cursor.execute("UPDATE invoices SET date = ?, supplier_id = ? WHERE id = ?", (date_str, supplier_id, self.invoice_id))
+            cursor.execute("UPDATE invoices SET date = ?, supplier_id = ?, number = ? WHERE id = ?", (date_str, supplier_id, number, self.invoice_id))
 
         cursor.execute("DELETE FROM invoice_items WHERE invoice_id = ?", (self.invoice_id,))
 
