@@ -12,8 +12,8 @@ class InvoiceEditor(QWidget):
         self.layout = QVBoxLayout()
 
         self.table = QTableWidget()
-        self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["ID", "Поставщик", "Дата", "Позиций"])
+        self.table.setColumnCount(5)
+        self.table.setHorizontalHeaderLabels(["ID", "Номер", "Поставщик", "Дата", "Позиций"])
         self.table.cellDoubleClicked.connect(self.edit_invoice)
         self.layout.addWidget(self.table)
         self.setMinimumSize(800, 600)
@@ -32,7 +32,11 @@ class InvoiceEditor(QWidget):
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT invoices.id, suppliers.name, invoices.date,
+            SELECT
+            invoices.id,
+            invoices.number,
+            suppliers.name,
+            invoices.date,
             (SELECT COUNT(*) FROM invoice_items WHERE invoice_id = invoices.id)
             FROM invoices
             LEFT JOIN suppliers ON invoices.supplier_id = suppliers.id
