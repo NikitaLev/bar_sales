@@ -24,6 +24,11 @@ from functools import partial
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
+
+        font = QFont()
+        font.setPointSize(10)
+        self.setFont(font)
+
         self.setWindowTitle("Бар: Продажа")
         self.setMinimumSize(1000, 700)
         self.sale_items = []
