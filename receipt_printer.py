@@ -16,7 +16,7 @@ def print_receipt(self, sale_id, guest, paid, method, items):
     <html lang="ru">
     <head>
       <meta charset="utf-8">
-      <title>Чек №{sale_id}</title>
+      <title>Счёт №{sale_id}</title>
       <style>
         body {{
           font-family: sans-serif;
@@ -46,14 +46,15 @@ def print_receipt(self, sale_id, guest, paid, method, items):
           font-weight: bold;
         }}
         /* Выравнивание колонок */
-        th.col-item, td.col-item {{ text-align: left; }}
-        th.col-qty, td.col-qty {{ text-align: center; }}
-        th.col-price, td.col-price {{ text-align: right; }}
+          .col-item       {{ text-align: left; }}
+          .col-qty        {{ text-align: center; }}
+          .col-unit-price {{ text-align: right; }}
+          .col-price      {{ text-align: right; }}
       </style>
     </head>
     <body>
-      <h4>ИП «КОММУНА»</h4>
-      <h4>Чек №{sale_id}</h4>
+      <h4>БАР «КОММУНА»</h4>
+      <h4>Счёт №{sale_id}</h4>
       <p>
         Дата: {now}<br>
         Гость: {guest}<br>
@@ -63,7 +64,8 @@ def print_receipt(self, sale_id, guest, paid, method, items):
         <tr>
           <th class="col-item">Товар</th>
           <th class="col-qty">Кол-во</th>
-          <th class="col-price">Цена</th>
+          <th class="col-unit-price">Цена/ед.</th>
+          <th class="col-price">Сумма</th>
         </tr>
     """
     # Строки таблицы с товарами
@@ -71,9 +73,10 @@ def print_receipt(self, sale_id, guest, paid, method, items):
         line_sum = qty * price
         html += (
             f"<tr>"
-            f"<td class='col-item'>{name}</td>"
-            f"<td class='col-qty'>{qty:.3f}</td>"
-            f"<td class='col-price'>{line_sum:.2f}</td>"
+              f"<td class='col-item'>{name}</td>"
+              f"<td class='col-qty'>{qty:.3f}</td>"
+              f"<td class='col-unit-price'>{price:.2f}</td>"
+              f"<td class='col-price'>{line_sum:.2f}</td>"
             f"</tr>"
         )
 
@@ -81,6 +84,9 @@ def print_receipt(self, sale_id, guest, paid, method, items):
     html += f"""
       </table>
       <h3 class="right">Итого: {total_sum:.2f} BYN</h3>
+        <p style="text-align:left; margin-top:0px; font-size:10px; color:#555;">
+          Документ не является платёжным документом
+        </p>
       <p style="text-align:center; margin-top:10px;">
         Спасибо за покупку!
       </p>
