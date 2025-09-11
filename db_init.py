@@ -40,6 +40,7 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         date TEXT,
         supplier_id INTEGER,
+        number INTEGER DEFAULT 0,
         FOREIGN KEY (supplier_id) REFERENCES suppliers(id)
     );
 
