@@ -144,19 +144,32 @@ class InvoiceForm(QDialog):
     def save_invoice(self):
         conn = get_connection()
         cursor = conn.cursor()
-
+        is_change = True
         number = self.number_input.text()
         date_str = self.date_edit.date().toString("yyyy-MM-dd")
         supplier_id = self.supplier_combo.currentData()
 
-
         if not self.invoice_id:
             cursor.execute("INSERT INTO invoices (date, supplier_id, number) VALUES (?, ?, ?)", (date_str, supplier_id, number))
             self.invoice_id = cursor.lastrowid
+            is_change = False
         else:
             cursor.execute("UPDATE invoices SET date = ?, supplier_id = ?, number = ? WHERE id = ?", (date_str, supplier_id, number, self.invoice_id))
 
-        cursor.execute("DELETE FROM invoice_items WHERE invoice_id = ?", (self.invoice_id,))
+        if is_change:
+            cursor.execute(
+                "SELECT ingredient_id, quantity FROM invoice_items WHERE invoice_id = ?",
+                (self.invoice_id,)
+            )
+            old_items = cursor.fetchall()  # список кортежей (ingredient_id, quantity)
+            for ingredient_id, old_qty in old_items:
+                cursor.execute(
+                    "UPDATE ingredients "
+                    "SET quantity = quantity - ? "
+                    "WHERE id = ?",
+                    (old_qty, ingredient_id)
+                )
+            cursor.execute("DELETE FROM invoice_items WHERE invoice_id = ?", (self.invoice_id,))
 
         saved_rows = 0
         failed_rows = []
@@ -203,7 +216,7 @@ class InvoiceForm(QDialog):
 
             cursor.execute("""
                 UPDATE ingredients
-                SET quantity = ?, last_price = ?
+                SET quantity = quantity + ?, last_price = ?
                 WHERE id = ?
             """, (quantity, price, ingredient_id))
 
