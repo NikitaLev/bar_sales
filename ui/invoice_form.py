@@ -14,6 +14,7 @@ class InvoiceForm(QDialog):
         self.setWindowTitle("Накладная")
         self.invoice_id = invoice_id
         self.layout = QVBoxLayout()
+        self.setMinimumSize(800, 600)
 
         self.layout.addWidget(QLabel("Номер накладной"))
         self.number_input = QLineEdit()
@@ -37,6 +38,7 @@ class InvoiceForm(QDialog):
         self.table = QTableWidget()
         self.table.setColumnCount(3)
         self.table.setHorizontalHeaderLabels(["Ингредиент", "Кол-во", "Цена за ед."])
+        self.table.setColumnWidth(0, 300)
         self.table.cellDoubleClicked.connect(self.edit_ingredient)
         self.layout.addWidget(self.table)
 

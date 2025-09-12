@@ -68,6 +68,7 @@ class MainWindow(QWidget):
         self.sale_table.setHorizontalHeaderLabels(
             ["Название", "Цена", "Кол-во", ""]
         )
+        self.sale_table.setColumnWidth(0, 300)
         # чтобы колонка с кнопками не растягивалась
         self.sale_table.horizontalHeader().setSectionResizeMode(3, 
             QHeaderView.ResizeToContents

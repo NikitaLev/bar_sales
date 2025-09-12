@@ -9,6 +9,8 @@ class IngredientSelector(QDialog):
     def __init__(self, show_price=False):
         super().__init__()
         self.setWindowTitle("Выбор ингредиента")
+        
+        self.setMinimumSize(800, 600)
         self.selected = None
         self.show_price = show_price
 
@@ -29,6 +31,7 @@ class IngredientSelector(QDialog):
         self.table.setSelectionBehavior(self.table.SelectRows)
         self.table.setEditTriggers(self.table.NoEditTriggers)
         self.table.cellDoubleClicked.connect(self.select_current)
+        self.table.setColumnWidth(0, 300)
         self.layout.addWidget(self.table)
 
         btn_row = QHBoxLayout()

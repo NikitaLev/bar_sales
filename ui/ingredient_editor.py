@@ -86,6 +86,7 @@ class IngredientForm(QDialog):
         super().__init__()
         self.setWindowTitle("Редактировать ингредиент" if ingredient_id else "Добавить ингредиент")
         self.ingredient_id = ingredient_id
+        self.setMinimumSize(600, 200)
         self.layout = QVBoxLayout()
 
         self.name_input = QLineEdit()
