@@ -9,7 +9,7 @@ from db_init import get_connection
 from ui.ingredient_selector import IngredientSelector
 
 class InvoiceForm(QDialog):
-    def __init__(self, invoice_id=None):
+    def __init__(self, invoice_id=None, invoice_number=None):
         super().__init__()
         self.setWindowTitle("Накладная")
         self.invoice_id = invoice_id
@@ -17,6 +17,10 @@ class InvoiceForm(QDialog):
 
         self.layout.addWidget(QLabel("Номер накладной"))
         self.number_input = QLineEdit()
+        if invoice_id:
+            self.number_input.setText(str(invoice_number))
+        else:
+            self.number_input.setText(str(0))
         self.layout.addWidget(self.number_input)
 
         self.date_edit = QDateEdit()
@@ -199,7 +203,7 @@ class InvoiceForm(QDialog):
 
             cursor.execute("""
                 UPDATE ingredients
-                SET quantity = quantity + ?, last_price = ?
+                SET quantity = ?, last_price = ?
                 WHERE id = ?
             """, (quantity, price, ingredient_id))
 

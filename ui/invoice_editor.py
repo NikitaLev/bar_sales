@@ -14,7 +14,7 @@ class InvoiceEditor(QWidget):
         self.table = QTableWidget()
         self.table.setColumnCount(5)
         self.table.setHorizontalHeaderLabels(["ID", "Номер", "Поставщик", "Дата", "Позиций"])
-        self.table.cellDoubleClicked.connect(self.edit_invoice)
+        self.table.cellDoubleClicked.connect(self.edit_invoice )
         self.layout.addWidget(self.table)
         self.setMinimumSize(800, 600)
 
@@ -56,6 +56,7 @@ class InvoiceEditor(QWidget):
 
     def edit_invoice(self, row, column):
         invoice_id = int(self.table.item(row, 0).text())
-        dialog = InvoiceForm(invoice_id=invoice_id)
+        number = int(self.table.item(row, 1).text())
+        dialog = InvoiceForm(invoice_id=invoice_id, invoice_number=number)
         dialog.exec_()
         self.load_invoices()
