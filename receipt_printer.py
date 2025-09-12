@@ -20,7 +20,6 @@ def print_receipt(self, sale_id, guest, paid, method, items):
       <style>
         body {{
           font-family: sans-serif;
-          max-width: 300px;
         }}
         h4 {{
           text-align: center;

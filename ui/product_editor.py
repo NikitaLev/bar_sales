@@ -67,6 +67,7 @@ class ProductForm(QDialog):
         self.category_input = QComboBox()
         self.load_categories()
 
+
         self.layout.addWidget(QLabel("Название"))
         self.layout.addWidget(self.name_input)
         self.layout.addWidget(QLabel("Цена (BYN)"))
