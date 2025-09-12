@@ -7,6 +7,7 @@ from functools import partial
 from db_init import get_connection
 from models import calculate_cost
 from ui.ingredient_selector import IngredientSelector
+from PyQt5.QtCore import QSignalBlocker
 
 class ProductEditor(QWidget):
     def __init__(self):
@@ -61,6 +62,7 @@ class ProductForm(QDialog):
         self.setWindowTitle("Редактировать напиток" if product_id else "Добавить напиток")
         self.product_id = product_id
         self.layout = QVBoxLayout()
+        self.setMinimumSize(400, 400)
 
         self.name_input = QLineEdit()
         self.price_input = QLineEdit()
@@ -71,6 +73,10 @@ class ProductForm(QDialog):
         self.layout.addWidget(QLabel("Название"))
         self.layout.addWidget(self.name_input)
         self.layout.addWidget(QLabel("Цена (BYN)"))
+
+        if not product_id:
+            self.price_input.setText(str(0))
+        
         self.layout.addWidget(self.price_input)
         self.layout.addWidget(QLabel("Категория"))
         self.layout.addWidget(self.category_input)
@@ -129,25 +135,31 @@ class ProductForm(QDialog):
             self.margin_input.setText(f"{margin:.1f}")
         conn.close()
 
-    def update_price_from_margin(self):
+    def update_price_from_margin(self, text):
         try:
-            margin = float(self.margin_input.text())
+            margin = float(text.replace(",", "."))
             cost = calculate_cost(self.product_id)
             price = cost * (1 + margin / 100)
-            self.price_input.setText(f"{price:.2f}")
+            # Блокируем сигнал 
+            with QSignalBlocker(self.price_input):
+                self.price_input.setText(f"{price:.2f}")
+
             self.rent_label.setText(f"Рентабельность: {margin:.1f}%")
-        except:
+        except ValueError:
             pass
 
-    def update_rentability(self):
+    def update_rentability(self, text):
         try:
-            price = float(self.price_input.text())
+            price = float(text.replace(",", "."))
             cost = calculate_cost(self.product_id)
             if cost > 0:
                 margin = (price - cost) / cost * 100
+                # Блокируем сигнал 
+                with QSignalBlocker(self.margin_input):
+                    self.margin_input.setText(f"{margin:.1f}")
+
                 self.rent_label.setText(f"Рентабельность: {margin:.1f}%")
-                self.margin_input.setText(f"{margin:.1f}")
-        except:
+        except ValueError:
             pass
 
     def open_recipe_editor(self):
@@ -195,6 +207,7 @@ class RecipeEditor(QDialog):
         self.setWindowTitle("Рецепт напитка")
         self.product_id = product_id
         self.layout = QVBoxLayout()
+        self.setMinimumSize(800, 400)
 
         self.filter_input = QLineEdit()
         self.filter_input.setPlaceholderText("Фильтр по названию ингредиента...")
@@ -205,6 +218,7 @@ class RecipeEditor(QDialog):
         self.table.setColumnCount(5)
         self.table.setHorizontalHeaderLabels(["Ингредиент", "Кол-во", "Ед. изм.", "Цена за ед.", "Стоимость"])
         self.layout.addWidget(self.table)
+        self.table.setColumnWidth(0, 300)
 
         btn_row = QHBoxLayout()
         add_btn = QPushButton("Добавить строку")
