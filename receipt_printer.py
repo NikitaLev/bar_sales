@@ -1,54 +1,51 @@
-from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
-from PyQt5.QtGui import QTextDocument
+from PyQt5.QtPrintSupport import QPrinter, QPrinterInfo
+from PyQt5.QtGui import QTextDocument, QPainter
+from PyQt5.QtCore import QSizeF
+from PyQt5.QtWidgets import QMessageBox
 import datetime, os
-from PyQt5.QtWidgets import ( QMessageBox
-)
-from string import Template
 
 def print_receipt(self, sale_id, guest, paid, method, items):
     paid_status = "Оплачено" if paid else "Не оплачено"
     total_sum = sum(qty * price for name, qty, price in items)
-
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    # Шаблон HTML
+
     html = f"""
-    <!DOCTYPE html>
-    <html lang="ru">
+    <html>
     <head>
       <meta charset="utf-8">
-      <title>Счёт №{sale_id}</title>
       <style>
         body {{
           font-family: sans-serif;
+          font-size: 10pt;
+          margin: 0;
+          padding: 0;
         }}
         h4 {{
           text-align: center;
-          margin: 0;
-          font-weight: normal;
+          margin: 4px 0;
+          font-size: 12pt;
         }}
         table {{
           width: 100%;
           border-collapse: collapse;
-          font-size: 14px;
         }}
-        /* Заголовки таблицы — обычный вес */
+        th, td {{
+          padding: 2px;
+          border-bottom: 1px dashed #444;
+        }}
         th {{
-          padding: 4px;
-          border-bottom: 1px dashed #444;
-          text-align: left;
           font-weight: normal;
+          text-align: left;
         }}
-        /* Ячейки с данными — жирные */
         td {{
-          padding: 4px;
-          border-bottom: 1px dashed #444;
           font-weight: bold;
         }}
-        /* Выравнивание колонок */
-          .col-item       {{ text-align: left; }}
-          .col-qty        {{ text-align: center; }}
-          .col-unit-price {{ text-align: right; }}
-          .col-price      {{ text-align: right; }}
+        .right {{
+          text-align: right;
+        }}
+        .center {{
+          text-align: center;
+        }}
       </style>
     </head>
     <body>
@@ -61,56 +58,60 @@ def print_receipt(self, sale_id, guest, paid, method, items):
       </p>
       <table>
         <tr>
-          <th class="col-item">Товар</th>
-          <th class="col-qty">Кол-во</th>
-          <th class="col-unit-price">Цена/ед.</th>
-          <th class="col-price">Сумма</th>
+          <th>Товар</th>
+          <th class="center">Кол-во</th>
+          <th class="right">Цена</th>
+          <th class="right">Сумма</th>
         </tr>
     """
-    # Строки таблицы с товарами
+
     for name, qty, price in items:
         line_sum = qty * price
-        html += (
-            f"<tr>"
-              f"<td class='col-item'>{name}</td>"
-              f"<td class='col-qty'>{qty:.3f}</td>"
-              f"<td class='col-unit-price'>{price:.2f}</td>"
-              f"<td class='col-price'>{line_sum:.2f}</td>"
-            f"</tr>"
-        )
+        html += f"""
+        <tr>
+          <td>{name}</td>
+          <td class="center">{qty:.3f}</td>
+          <td class="right">{price:.2f}</td>
+          <td class="right">{line_sum:.2f}</td>
+        </tr>
+        """
 
-    # Вывод итоговой суммы
     html += f"""
       </table>
-      <h3 class="right">Итого: {total_sum:.2f} BYN</h3>
-        <p style="text-align:left; margin-top:0px; font-size:10px; color:#555;">
-          Документ не является платёжным документом
-        </p>
-      <p style="text-align:center; margin-top:10px;">
+      <h4 class="right">Итого: {total_sum:.2f} BYN</h4>
+      <p style="font-size:8pt; color:#555;">
+        Документ не является платёжным документом
+      </p>
+      <p class="center" style="margin-top:10px;">
         Спасибо за покупку!
       </p>
     </body>
     </html>
     """
 
-
-    # Сохраняем HTML-файл (опционально)
+    # Сохраняем HTML
     filename = f"cheque_{sale_id}.html"
     with open(filename, "w", encoding="utf-8") as f:
         f.write(html)
 
-    # Открываем системный диалог печати
-    printer = QPrinter(QPrinter.HighResolution)
-    dlg = QPrintDialog(printer, self)
-    if dlg.exec_() == QPrintDialog.Accepted:
-        doc = QTextDocument()
-        doc.setHtml(html)
-        doc.print_(printer)
+    # Настройка принтера
+    desired_name = "G80(1)"
+    printers = QPrinterInfo.availablePrinters()
+    printer_info = next((p for p in printers if p.printerName() == desired_name), None)
+    if not printer_info:
+        printer_info = QPrinterInfo.defaultPrinter()
 
-    # Уведомляем о сохранении/печати
-    QMessageBox.information(
-        self,
-        "Чек",
-        f"Чек сохранён: {os.path.abspath(filename)}\n"
-        "И/или отправлен на печать"
-    )
+    printer = QPrinter(printer_info)
+    printer.setPageSize(QPrinter.Custom)
+    printer.setPageMargins(0, 0, 0, 0, QPrinter.Millimeter)
+    printer.setOrientation(QPrinter.Portrait)
+
+    # Создаём QTextDocument
+    doc = QTextDocument()
+    doc.setHtml(html)
+    doc.setTextWidth(printer.pageRect().width())  # важно!
+
+    # Печатаем через QPainter — без масштабирования
+    painter = QPainter(printer)
+    doc.drawContents(painter)
+    painter.end()

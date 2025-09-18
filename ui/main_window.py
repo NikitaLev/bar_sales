@@ -2,7 +2,9 @@ from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QGridLayout, QTableWidget, QTableWidgetItem, QComboBox, QCheckBox,
     QMessageBox, QScrollArea, QTabWidget, QLineEdit, QHeaderView
+
 )
+
 from PyQt5.QtGui import QIcon, QPixmap, QFont
 from PyQt5.QtCore import QSize, Qt
 from models import get_categories, get_products_by_category, create_sale, get_last_sale_id
@@ -68,6 +70,7 @@ class MainWindow(QWidget):
         self.sale_table.setHorizontalHeaderLabels(
             ["Название", "Цена", "Кол-во", ""]
         )
+        self.sale_table.setMaximumSize(2000, 200)
         self.sale_table.setColumnWidth(0, 300)
         # чтобы колонка с кнопками не растягивалась
         self.sale_table.horizontalHeader().setSectionResizeMode(3, 
@@ -112,17 +115,16 @@ class MainWindow(QWidget):
         layout.addLayout(payment_row)
 
         action_row = QHBoxLayout()
-        print_btn = QPushButton("Напечатать счёт")
-        print_btn.clicked.connect(self.on_print)
-        action_row.addWidget(print_btn)
-
         clear_btn = QPushButton("Очистить счёт")
+        clear_btn.setFixedHeight(40)  # высота в пикселях
         clear_btn.clicked.connect(self.clear_sale)
         action_row.addWidget(clear_btn)
 
         finish_btn = QPushButton("Завершить продажу")
+        finish_btn.setFixedHeight(40)
         finish_btn.clicked.connect(self.finish_sale)
         action_row.addWidget(finish_btn)
+
 
         layout.addLayout(action_row)
         tab.setLayout(layout)
@@ -218,15 +220,34 @@ class MainWindow(QWidget):
         products = get_products_by_category(category_id)
         for i, (pid, name, price, image_path) in enumerate(products):
             btn = QPushButton()
-            btn.setFixedSize(150, 120)
+
+            # 🖋️ Устанавливаем текст
             btn.setText(f"{name}\n{price:.2f} BYN")
+
+            # 🔠 Настройка шрифта: размер 16, жирный
+            font = QFont()
+            font.setPointSize(14)
+            font.setBold(True)
+            btn.setFont(font)
+
+            # 🎨 Стиль: перенос по словам и выравнивание по центру
+            btn.setStyleSheet("""
+                QPushButton {
+                    qproperty-wordWrap: true;
+                    text-align: center;
+                    padding: 5px;
+                }
+            """)
+
+            # 🖼️ Иконка, если есть изображение
             if image_path:
-                pixmap = QPixmap(image_path).scaled(64, 64)
+                pixmap = QPixmap(image_path).scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation)
                 icon = QIcon(pixmap)
                 btn.setIcon(icon)
                 btn.setIconSize(QSize(64, 64))
+
             btn.clicked.connect(lambda _, p=(pid, name, price): self.add_to_sale(p))
-            self.product_grid.addWidget(btn, i // 4, i % 4)
+            self.product_grid.addWidget(btn, i // 9, i % 9)
 
     def add_to_sale(self, product):
         pid, name, price = product
@@ -287,6 +308,7 @@ class MainWindow(QWidget):
         items_for_db = [(pid, price, qty) for pid, _, price, qty in self.sale_items]
         try:
             create_sale(items_for_db, paid, method, guest_name)
+            self.on_print()
             QMessageBox.information(self, "Готово", "Продажа завершена.")
             self.sale_items = []
             self.refresh_sale_table()
