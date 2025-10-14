@@ -47,7 +47,7 @@ def create_sale(items, paid, method, guest_name="Гость"):  # ✅ добав
 
     cursor.execute("""
         INSERT INTO sales (date, total, paid, payment_method, guest_name)
-        VALUES (datetime('now'), ?, ?, ?, ?)
+        VALUES (datetime('now', 'localtime'), ?, ?, ?, ?)
     """, (total, int(paid), method, guest_name))  # ✅ сохранение имени
     sale_id = cursor.lastrowid
 
