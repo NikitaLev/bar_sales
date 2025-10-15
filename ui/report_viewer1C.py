@@ -22,8 +22,12 @@ class Report1CViewer(QWidget):
         controls_layout = QHBoxLayout()
 
         # Даты
-        self.start_date = QDateEdit(); self.start_date.setCalendarPopup(True); self.start_date.setDate(QDate.currentDate())
-        self.end_date   = QDateEdit(); self.end_date.setCalendarPopup(True); self.end_date.setDate(QDate.currentDate())
+        self.start_date = QDateEdit(); 
+        self.start_date.setCalendarPopup(True); 
+        self.start_date.setDate(QDate.currentDate().addDays(-1))
+        self.end_date   = QDateEdit(); 
+        self.end_date.setCalendarPopup(True); 
+        self.end_date.setDate(QDate.currentDate())
 
         controls_layout.addWidget(QLabel("С:")); controls_layout.addWidget(self.start_date)
         controls_layout.addWidget(QLabel("По:")); controls_layout.addWidget(self.end_date)
@@ -218,7 +222,7 @@ class Report1CViewer(QWidget):
 
         self.right_table.setRowCount(len(rows))
         for i, row in enumerate(rows):
-            self._insert_checkbox(self.right_table, i, 0, mapping=self.right_checkboxes, checked=False)
+            self._insert_checkbox(self.right_table, i, 0, mapping=self.right_checkboxes, checked=True)
             for j, value in enumerate(row):
                 self.right_table.setItem(i, j + 1, QTableWidgetItem(str(value)))
         self.right_table.resizeColumnsToContents()
