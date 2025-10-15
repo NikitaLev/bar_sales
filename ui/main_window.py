@@ -11,6 +11,7 @@ from models import get_categories, get_products_by_category, create_sale, get_la
 from db_init import clear_all_tables
 from ui.product_editor import ProductEditor
 from ui.ingredient_editor import IngredientEditor
+from ui.report_viewer1C import Report1CViewer
 from ui.supplier_editor import SupplierEditor
 from ui.invoice_editor import InvoiceEditor
 from ui.sale_editor import SaleEditor
@@ -40,6 +41,7 @@ class MainWindow(QWidget):
         self.tabs.addTab(self.create_sales_tab(), "Счета")      
         self.tabs.addTab(self.create_admin_tab(), "Управление")
         self.tabs.addTab(self.create_report_tab(), "Отчёты")   
+        self.tabs.addTab(self.create_report1C_tab(), "Отчёт 1С")   
         self.tabs.currentChanged.connect(self.on_tab_changed) 
 
         layout = QVBoxLayout()
@@ -135,6 +137,16 @@ class MainWindow(QWidget):
         layout = QVBoxLayout()
 
         self.report_viewer = ReportViewer()
+        layout.addWidget(self.report_viewer)
+
+        tab.setLayout(layout)
+        return tab
+    
+    def create_report1C_tab(self):
+        tab = QWidget()
+        layout = QVBoxLayout()
+
+        self.report_viewer = Report1CViewer()
         layout.addWidget(self.report_viewer)
 
         tab.setLayout(layout)
