@@ -45,12 +45,12 @@ class Report1CViewer(QWidget):
         # Таблицы
         tables_row = QHBoxLayout()
 
-        # левая таблица: чекбокс | Дата | Сумма | Оплачено | Метод | Гость | sale_id (скрытая)
+        # левая таблица: чекбокс | Дата | Сумма | Оплачено | Метод | Гость | sale_id (скрытая)| 1C (Скрытая)
         self.left_table = QTableWidget(); self.left_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.left_table.setColumnCount(7)
-        self.left_table.setHorizontalHeaderLabels(["Вкл", "Дата", "Сумма", "Оплачено", "Метод", "Гость", "sale_id"])
+        self.left_table.setColumnCount(8)
+        self.left_table.setHorizontalHeaderLabels(["Вкл", "Дата", "Сумма", "Оплачено", "Метод", "Гость", "sale_id", "1C"])
         self.left_table.hideColumn(6)
-
+        self.left_table.hideColumn(7)
         # правая таблица: чекбокс | Название | Кол-во | Метод
         self.right_table = QTableWidget(); self.right_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.right_table.setColumnCount(4)
@@ -96,7 +96,7 @@ class Report1CViewer(QWidget):
         rows = []
         raw_meta = []
         for sale in sales:
-            sale_id, date_raw, total, paid, method, guest = sale
+            sale_id, date_raw, total, paid, method, guest, c1  = sale
 
             sale_date_obj = None
             if isinstance(date_raw, str):
@@ -135,11 +135,12 @@ class Report1CViewer(QWidget):
                 paid_text,
                 method_text,
                 guest or "",
-                sale_id
+                sale_id, 
+                c1
             ])
-            raw_meta.append((bool(paid), method_text, sale_id))
+            raw_meta.append((bool(paid), method_text, sale_id, c1))
 
-        headers = ["Вкл", "Дата", "Сумма", "Оплачено", "Метод", "Гость", "sale_id"]
+        headers = ["Вкл", "Дата", "Сумма", "Оплачено", "Метод", "Гость", "sale_id", "1C"]
         self.left_table.clear()
         self.left_table.setColumnCount(len(headers))
         self.left_table.setHorizontalHeaderLabels(headers)
@@ -147,23 +148,30 @@ class Report1CViewer(QWidget):
         self.left_checkboxes.clear()
 
         for i, row in enumerate(rows):
-            cb = self._insert_checkbox(self.left_table, i, 0, mapping=self.left_checkboxes, checked=False)
+            paid_bool, method_text, _sid, c1_value = raw_meta[i]
+            is_non_cash = str(method_text).lower() in ("безнал", "безналичный")
+            c1_bool = bool(int(c1_value)) if c1_value is not None else False
+            auto_checked = is_non_cash or c1_bool
+
+            # вставляем чекбокс с автоустановкой
+            cb = self._insert_checkbox(self.left_table, i, 0, mapping=self.left_checkboxes, checked=auto_checked)
             cb.stateChanged.connect(self._rebuild_right_table_from_selection)
 
             for j, value in enumerate(row):
                 item = QTableWidgetItem(str(value))
                 self.left_table.setItem(i, j + 1, item)
 
-            paid_bool, method_text, _sid = raw_meta[i]
+            paid_bool, method_text, _sid, c1_value = raw_meta[i]
             paid_item = self.left_table.item(i, 3)
             if paid_item:
                 paid_item.setBackground(self._color_paid if paid_bool else self._color_not_paid)
             method_item = self.left_table.item(i, 4)
             if method_item:
-                is_cash = str(method_text).lower() in ("нал", "наличный", "cash", "0")
+                is_cash = str(method_text).lower() in ("нал", "наличный")
                 method_item.setBackground(self._color_cash if is_cash else self._color_non_cash)
 
-        self.left_table.hideColumn(6)
+        self.left_table.hideColumn(6) # sale_id
+        self.left_table.hideColumn(7) # C1
         self.left_table.resizeColumnsToContents()
         self._fill_right_table([], reset=True)
 
@@ -222,7 +230,7 @@ class Report1CViewer(QWidget):
 
         self.right_table.setRowCount(len(rows))
         for i, row in enumerate(rows):
-            self._insert_checkbox(self.right_table, i, 0, mapping=self.right_checkboxes, checked=True)
+            self._insert_checkbox(self.right_table, i, 0, mapping=self.right_checkboxes, checked=False)
             for j, value in enumerate(row):
                 self.right_table.setItem(i, j + 1, QTableWidgetItem(str(value)))
         self.right_table.resizeColumnsToContents()

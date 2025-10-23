@@ -69,7 +69,8 @@ def init_db():
         total REAL,
         paid INTEGER,
         payment_method TEXT,
-        guest_name TEXT DEFAULT 'Гость'
+        guest_name TEXT DEFAULT 'Гость',
+        C1 INTEGER DEFAULT 1
     );
 
     CREATE TABLE IF NOT EXISTS sale_items (
@@ -81,6 +82,13 @@ def init_db():
         FOREIGN KEY (product_id) REFERENCES products(id)
     );
     """)
+
+    # Миграция: если таблица sales уже существует, но колонки C1 нет — добавить
+    cursor.execute("PRAGMA table_info(sales);")
+    existing_columns = [row[1] for row in cursor.fetchall()]  # row[1] — имя колонки
+    if "C1" not in existing_columns:
+        cursor.execute("ALTER TABLE sales ADD COLUMN C1 INTEGER DEFAULT 1;")
+        cursor.execute("UPDATE sales SET C1 = 1 WHERE C1 IS NULL;")
 
     conn.commit()
     conn.close()
