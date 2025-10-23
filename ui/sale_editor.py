@@ -270,7 +270,7 @@ class SaleForm(QDialog):
 
     def load_status(self):
         sales = get_sales()
-        for sid, date, total, paid, method, guest_name in sales:
+        for sid, date, total, paid, method, guest_name, c1 in sales:
             if sid == self.sale_id:
                 self.paid_checkbox.setChecked(bool(paid))
                 self.payment_method.setCurrentText(method)
