@@ -40,15 +40,23 @@ def get_ingredients_for_product(product_id):
     conn.close()
     return result
 
-def create_sale(items, paid, method, guest_name="Гость"):  # ✅ добавлен guest_name
+def create_sale(items, paid, method, guest_name="Гость", c1=True):
+    """
+    items: список кортежей (product_id, price, qty)
+    paid: булево или 0/1
+    method: строка или код метода оплаты
+    guest_name: имя гостя
+    C1: булево значение для поля C1 (по умолчанию True)
+    """
     conn = get_connection()
     cursor = conn.cursor()
     total = sum(price * qty for _, price, qty in items)
 
     cursor.execute("""
-        INSERT INTO sales (date, total, paid, payment_method, guest_name)
-        VALUES (datetime('now', 'localtime'), ?, ?, ?, ?)
-    """, (total, int(paid), method, guest_name))  # ✅ сохранение имени
+        INSERT INTO sales (date, total, paid, payment_method, guest_name, C1)
+        VALUES (datetime('now', 'localtime'), ?, ?, ?, ?, ?)
+    """, (total, int(paid), method, guest_name, int(bool(c1))))
+
     sale_id = cursor.lastrowid
 
     for product_id, price, qty in items:
@@ -80,7 +88,7 @@ def get_sales():
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT id, date, total, paid, payment_method, guest_name
+        SELECT id, date, total, paid, payment_method, guest_name, C1
         FROM sales
         ORDER BY date DESC
     """)  # ✅ добавлен guest_name

@@ -198,7 +198,7 @@ class SaleEditor(QWidget):
     def load_sales(self):
         sales = get_sales()
         self.table.setRowCount(len(sales))
-        for i, (sid, date, total, paid, method, guest_name) in enumerate(sales):
+        for i, (sid, date, total, paid, method, guest_name, c1) in enumerate(sales):
             self.table.setItem(i, 0, QTableWidgetItem(str(sid)))
             self.table.setItem(i, 1, QTableWidgetItem(date))
             self.table.setItem(i, 2, QTableWidgetItem(f"{total:.2f} BYN"))

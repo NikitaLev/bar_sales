@@ -88,12 +88,26 @@ class MainWindow(QWidget):
         payment_row = QHBoxLayout()
         self.payment_method = QComboBox()
         self.payment_method.addItems(["Нал", "Безнал"])
+
         self.paid_checkbox = QCheckBox("Оплачено")
+        self.C1_checkbox = QCheckBox("Ч")
+        self.C1_checkbox.setChecked(True)
+
+        paid_container = QWidget()
+        paid_vbox = QVBoxLayout(paid_container)
+        paid_vbox.setContentsMargins(0, 0, 0, 0)
+        paid_vbox.setSpacing(4)
+        paid_vbox.addWidget(self.paid_checkbox)
+        paid_vbox.addWidget(self.C1_checkbox)
+        paid_vbox.setAlignment(self.paid_checkbox, Qt.AlignTop)
+
         payment_row.addWidget(QLabel("Гость"))
         payment_row.addWidget(self.guest_name_input)
         payment_row.addWidget(QLabel("Метод оплаты:"))
         payment_row.addWidget(self.payment_method)
-        payment_row.addWidget(self.paid_checkbox)
+
+        payment_row.addWidget(paid_container)
+
 
         # Итоговая сумма по товарам
         total_row = QHBoxLayout()
@@ -174,6 +188,7 @@ class MainWindow(QWidget):
 
         self.payment_method.setCurrentIndex(0)
         self.paid_checkbox.setChecked(False)
+        self.C1_checkbox.setChecked(True)
 
         self.update_total() 
 
@@ -315,11 +330,12 @@ class MainWindow(QWidget):
             QMessageBox.warning(self, "Ошибка", "Счёт пуст.")
             return
         paid = self.paid_checkbox.isChecked()
+        c1 = self.C1_checkbox.isChecked()
         method = self.payment_method.currentText()
         guest_name = self.guest_name_input.text().strip() or "Гость"
         items_for_db = [(pid, price, qty) for pid, _, price, qty in self.sale_items]
         try:
-            create_sale(items_for_db, paid, method, guest_name)
+            create_sale(items_for_db, paid, method, guest_name, c1)
             self.on_print()
             QMessageBox.information(self, "Готово", "Продажа завершена.")
             self.sale_items = []
