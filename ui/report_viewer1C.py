@@ -174,6 +174,7 @@ class Report1CViewer(QWidget):
         self.left_table.hideColumn(7) # C1
         self.left_table.resizeColumnsToContents()
         self._fill_right_table([], reset=True)
+        self._rebuild_right_table_from_selection()
 
     def _rebuild_right_table_from_selection(self, *_args):
         selected_sale_ids = []
