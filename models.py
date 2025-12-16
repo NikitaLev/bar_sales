@@ -109,14 +109,21 @@ def get_sale_items(sale_id):
     conn.close()
     return result
 
-def update_sale_status(sale_id, paid, method):
+def update_sale_status(sale_id, paid, method, new_date=None):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("""
-        UPDATE sales
-        SET paid = ?, payment_method = ?
-        WHERE id = ?
-    """, (int(paid), method, sale_id))
+    if new_date:
+        cursor.execute("""
+            UPDATE sales
+            SET paid = ?, payment_method = ?, date = ?
+            WHERE id = ?
+        """, (int(paid), method, new_date, sale_id))
+    else:
+        cursor.execute("""
+            UPDATE sales
+            SET paid = ?, payment_method = ?
+            WHERE id = ?
+        """, (int(paid), method, sale_id))
     conn.commit()
     conn.close()
 

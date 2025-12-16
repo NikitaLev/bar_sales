@@ -4,9 +4,9 @@ from PyQt5.QtWidgets import (
     QPushButton, QHBoxLayout, QLineEdit, QDateEdit, QDialog, QLabel, QComboBox, QCheckBox, QMessageBox
 )
 from PyQt5.QtCore import QDate
-
+from PyQt5.QtCore import QDateTime
 from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
-
+from PyQt5.QtWidgets import QDateTimeEdit
 from PyQt5.QtGui import QColor, QTextDocument
 from models import get_sales, get_sale_items, update_sale_status
 from datetime import datetime
@@ -227,6 +227,13 @@ class SaleForm(QDialog):
         self.setWindowTitle(f"Счёт #{sale_id}")
         self.layout = QVBoxLayout()
 
+        # поле даты
+        self.date_edit = QDateTimeEdit()
+        self.date_edit.setCalendarPopup(True)
+        self.layout.addWidget(QLabel("Дата чека"))
+        self.layout.addWidget(self.date_edit)
+
+
         self.guest_label = QLabel("Гость: —")
         self.layout.addWidget(self.guest_label)
 
@@ -275,12 +282,28 @@ class SaleForm(QDialog):
                 self.paid_checkbox.setChecked(bool(paid))
                 self.payment_method.setCurrentText(method)
                 self.guest_label.setText(f"Гость: {guest_name}")
+
+                # преобразуем строку даты из БД в QDateTime
+                qt_dt = QDateTime.fromString(date, "yyyy-MM-dd HH:mm:ss")
+                if qt_dt.isValid():
+                    self.date_edit.setDateTime(qt_dt)
+                else:
+                    from datetime import datetime as py_dt
+                    try:
+                        d = py_dt.strptime(date, "%Y-%m-%d %H:%M:%S")
+                        self.date_edit.setDateTime(QDateTime(d))
+                    except Exception:
+                        pass
                 break
+
+
 
     def save(self):
         paid = self.paid_checkbox.isChecked()
         method = self.payment_method.currentText()
-        update_sale_status(self.sale_id, paid, method)
+        new_date = self.date_edit.dateTime().toString("yyyy-MM-dd HH:mm:ss")
+
+        update_sale_status(self.sale_id, paid, method, new_date)
         QMessageBox.information(self, "Готово", "Статус обновлён.")
         self.accept()
 
