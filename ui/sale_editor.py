@@ -1,16 +1,18 @@
 import os
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
+    QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QSpinBox,
     QPushButton, QHBoxLayout, QLineEdit, QDateEdit, QDialog, QLabel, QComboBox, QCheckBox, QMessageBox
 )
+from PyQt5.QtCore import Qt
 from PyQt5.QtCore import QDate
 from PyQt5.QtCore import QDateTime
 from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
 from PyQt5.QtWidgets import QDateTimeEdit
 from PyQt5.QtGui import QColor, QTextDocument
-from models import get_sales, get_sale_items, update_sale_status
+from models import get_sales,get_products, get_sale_items, update_sale_status, update_sale_items
 from datetime import datetime
 import datetime
+from functools import partial
 
 from receipt_printer import print_receipt
 
@@ -244,7 +246,7 @@ class SaleForm(QDialog):
         self.layout.addWidget(self.paid_checkbox)
         self.layout.addWidget(QLabel("Метод оплаты"))
         self.layout.addWidget(self.payment_method)
-        self.setMinimumSize(400, 300)
+        self.setMinimumSize(600, 500)
 
         self.item_table = QTableWidget()
         self.item_table.setColumnCount(3)
@@ -256,6 +258,11 @@ class SaleForm(QDialog):
         save_btn = QPushButton("Сохранить")
         save_btn.clicked.connect(self.save)
         btn_row.addWidget(save_btn)
+
+        # НОВАЯ КНОПКА: редактирование содержимого
+        edit_items_btn = QPushButton("Редактировать")
+        edit_items_btn.clicked.connect(self.open_edit_items)
+        btn_row.addWidget(edit_items_btn)
 
         print_btn = QPushButton("Печать")
         btn_row.addWidget(print_btn)
@@ -296,7 +303,12 @@ class SaleForm(QDialog):
                         pass
                 break
 
-
+    def open_edit_items(self):
+        dlg = SaleEditDialog(self.sale_id, self)
+        if dlg.exec_():
+            # после сохранения — перезагрузим таблицу и статус (итог мог измениться)
+            self.load_items()
+            self.load_status()
 
     def save(self):
         paid = self.paid_checkbox.isChecked()
@@ -316,4 +328,138 @@ class SaleForm(QDialog):
 
         
         print_receipt(self, self.sale_id, guest, self.paid_checkbox.isChecked(), method, items)
+
+
+class SaleEditDialog(QDialog):
+    def __init__(self, sale_id, parent=None):
+        super().__init__(parent)
+        self.sale_id = sale_id
+        self.setWindowTitle(f"Редактирование чека #{sale_id}")
+        self.setMinimumSize(600, 400)
+
+        self.layout = QVBoxLayout(self)
+
+        # Панель добавления позиции
+        add_row = QHBoxLayout()
+        add_row.addWidget(QLabel("Товар:"))
+        self.product_combo = QComboBox()
+        self.products = self._load_products()  # {name: (id, price)}
+        self.product_combo.addItems(list(self.products.keys()))
+        add_row.addWidget(self.product_combo)
+
+        add_row.addWidget(QLabel("Кол-во:"))
+        self.qty_spin = QSpinBox()
+        self.qty_spin.setRange(1, 1000)
+        self.qty_spin.setValue(1)
+        add_row.addWidget(self.qty_spin)
+
+        add_btn = QPushButton("Добавить")
+        add_btn.clicked.connect(self.add_item)
+        add_row.addWidget(add_btn)
+
+        self.layout.addLayout(add_row)
+
+        # Таблица текущих позиций: Название | Цена | Кол-во | Удалить
+        self.table = QTableWidget()
+        self.table.setColumnCount(4)
+        self.table.setHorizontalHeaderLabels(["Название", "Цена", "Кол-во", ""])
+        self.table.horizontalHeader().setStretchLastSection(False)
+        self.layout.addWidget(self.table)
+
+        # Кнопки управления
+        btn_row = QHBoxLayout()
+        save_btn = QPushButton("Сохранить изменения")
+        save_btn.clicked.connect(self.save_changes)
+        btn_row.addWidget(save_btn)
+
+        cancel_btn = QPushButton("Отмена")
+        cancel_btn.clicked.connect(self.reject)
+        btn_row.addWidget(cancel_btn)
+
+        self.layout.addLayout(btn_row)
+
+        # внутреннее хранилище позиций: list of dict
+        # [{"product_id": int, "name": str, "price": float, "qty": int}]
+        self.items = []
+        self._load_sale_items()
+        self._refresh_table()
+
+    def _load_products(self):
+        # Словарь name -> (id, price)
+        mapping = {}
+        for pid, name, price, *_rest in get_products():
+            mapping[name] = (pid, float(price))
+        return mapping
+
+    def _load_sale_items(self):
+        self.items.clear()
+        for name, qty, price in get_sale_items(self.sale_id):
+            qty_val = int(qty) if str(qty).isdigit() else int(float(qty))
+            self.items.append({
+                "product_id": self.products.get(name, (None, float(price)))[0],
+                "name": name,
+                "price": float(price),
+                "qty": qty_val
+            })
+
+    def _refresh_table(self):
+        self.table.setRowCount(len(self.items))
+        for i, it in enumerate(self.items):
+            # Название
+            self.table.setItem(i, 0, QTableWidgetItem(it["name"]))
+            # Цена
+            self.table.setItem(i, 1, QTableWidgetItem(f"{it['price']:.2f}"))
+            # Кол-во — редактируемое
+            qty_item = QTableWidgetItem(str(it["qty"]))
+            qty_item.setFlags(qty_item.flags() | Qt.ItemIsEditable)
+            self.table.setItem(i, 2, qty_item)
+
+            # Удалить
+            del_btn = QPushButton("Удалить")
+            del_btn.clicked.connect(partial(self.remove_row, i))
+            self.table.setCellWidget(i, 3, del_btn)
+
+    def add_item(self):
+        name = self.product_combo.currentText()
+        pid, price = self.products[name]
+        qty = int(self.qty_spin.value())
+
+        # если уже в списке — увеличим количество
+        for it in self.items:
+            if it["product_id"] == pid:
+                it["qty"] += qty
+                self._refresh_table()
+                return
+
+        self.items.append({
+            "product_id": pid,
+            "name": name,
+            "price": float(price),
+            "qty": qty
+        })
+        self._refresh_table()
+
+    def remove_row(self, idx):
+        if 0 <= idx < len(self.items):
+            self.items.pop(idx)
+            self._refresh_table()
+
+    def save_changes(self):
+        # cчитываем количество из таблицы перед сохранением
+        for i, it in enumerate(self.items):
+            qty_item = self.table.item(i, 2)
+            try:
+                it["qty"] = int(float(qty_item.text()))
+            except Exception:
+                it["qty"] = 1
+
+        # подготовка для модели: [(product_id, price, qty), ...]
+        items_for_db = [(it["product_id"], it["price"], it["qty"]) for it in self.items]
+
+        try:
+            update_sale_items(self.sale_id, items_for_db)
+            QMessageBox.information(self, "Готово", "Состав чека обновлён.")
+            self.accept()
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось сохранить изменения:\n{e}")
         

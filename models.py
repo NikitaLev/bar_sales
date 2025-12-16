@@ -404,3 +404,83 @@ def get_margin_report():
 
     conn.close()
     return report
+
+#обновление позиций
+
+def get_sale_items_raw(sale_id):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT product_id, quantity
+        FROM sale_items
+        WHERE sale_id = ?
+    """, (sale_id,))
+    rows = cur.fetchall()
+    conn.close()
+    return rows  # [(product_id, qty), ...]
+
+def get_product_price(product_id):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT price FROM products WHERE id = ?", (product_id,))
+    row = cur.fetchone()
+    conn.close()
+    return float(row[0]) if row else 0.0
+
+def update_sale_items(sale_id, new_items):
+    """
+    new_items: list of (product_id, price, qty)
+    Обновляет состав чека и total. Корректирует склад по разнице.
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # старые позиции
+    old = get_sale_items_raw(sale_id)  # [(pid, qty)]
+    old_map = {pid: qty for pid, qty in old}
+    new_map = {pid: qty for (pid, _price, qty) in new_items}
+
+    # diff для склада: qty_new - qty_old
+    diff_map = {}
+    for pid in set(old_map.keys()) | set(new_map.keys()):
+        diff_map[pid] = new_map.get(pid, 0) - old_map.get(pid, 0)
+
+    # очистим старые записи и вставим новые
+    cur.execute("DELETE FROM sale_items WHERE sale_id = ?", (sale_id,))
+    for pid, price, qty in new_items:
+        cur.execute("""
+            INSERT INTO sale_items (sale_id, product_id, quantity)
+            VALUES (?, ?, ?)
+        """, (sale_id, pid, qty))
+
+    # пересчёт total
+    total = 0.0
+    for pid, price, qty in new_items:
+        price_val = price if price is not None else get_product_price(pid)
+        total += float(price_val) * float(qty)
+
+    cur.execute("UPDATE sales SET total = ? WHERE id = ?", (total, sale_id))
+
+    # корректировка склада по рецептам (по диффу)
+    # если не хотите менять склад при редактировании — закомментируйте блок ниже
+    for pid, qty_diff in diff_map.items():
+        if qty_diff == 0:
+            continue
+        # рецепт для продукта
+        cur.execute("""
+            SELECT ingredient_id, quantity
+            FROM product_ingredients
+            WHERE product_id = ?
+        """, (pid,))
+        recipe = cur.fetchall()
+        for ing_id, ing_qty in recipe:
+            delta = ing_qty * qty_diff
+            # если qty_diff > 0 — списываем больше, если < 0 — возвращаем на склад
+            cur.execute("""
+                UPDATE ingredients
+                SET quantity = quantity - ?
+                WHERE id = ?
+            """, (delta, ing_id))
+
+    conn.commit()
+    conn.close()
