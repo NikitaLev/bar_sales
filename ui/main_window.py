@@ -411,7 +411,7 @@ class MainWindow(QWidget):
             clear_all_tables()
             QMessageBox.information(self, "Готово", "База данных очищена.")
 
-    def on_tab_changed(self, index):  # ✅ автообновление вкладок
+    def on_tab_changed(self, index):
         tab_text = self.tabs.tabText(index)
 
         if tab_text == "Счета":

@@ -10,7 +10,8 @@ from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
 from PyQt5.QtWidgets import QDateTimeEdit
 from PyQt5.QtGui import QColor, QTextDocument
 from models import (get_sales,get_products,get_products_by_category, get_categories, get_sale_items_update,
-                    get_sale_items, update_sale_status, update_sale_items, _get_saved_total, close_sale
+                    get_sale_items, update_sale_status, update_sale_items, _get_saved_total, close_sale,
+                    cancel_sale
                     )
 from datetime import datetime
 import datetime
@@ -245,11 +246,15 @@ class SaleEditor(QWidget):
                 btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
                 btn.clicked.connect(partial(self.confirm_close_sale, sid, i))
             else:
-                btn.setText("Списан")
-                btn.setEnabled(False)
+                btn = QPushButton("Отменить списание")
+                btn.setFlat(True)
+                btn.setStyleSheet("background-color: orange; border: none;")
                 btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+                btn.clicked.connect(partial(self.confirm_cancel_sale, sid, i))
 
             layout.addWidget(btn)
+            self.table.setColumnWidth(6, 200)  # 7 — индекс столбца "Статус", 200 пикселей ширины
+
             self.table.setCellWidget(i, 6, cell_widget)
 
             self.table.setItem(i, 7, QTableWidgetItem(status))  # ✅ имя гостя
@@ -272,6 +277,26 @@ class SaleEditor(QWidget):
 
         if reply == QMessageBox.Yes:
             self.close_sale_action(sale_id, row_idx)
+
+    def confirm_cancel_sale(self, sale_id, row_idx):
+        reply = QMessageBox.question(
+            self,
+            "Подтверждение отмены",
+            f"Вы уверены, что хотите отменить списание чека #{sale_id}?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            self.cancel_sale_action(sale_id, row_idx)
+
+    def cancel_sale_action(self, sale_id, row_idx):
+        try:
+            cancel_sale(sale_id)  # твоя функция в models.py
+            QMessageBox.information(self, "Готово", f"Списание чека #{sale_id} отменено.")
+            self.load_sales()
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось отменить списание:\n{e}")
+
 
     def edit_sale(self, row, column):
         sale_id = int(self.table.item(row, 0).text())

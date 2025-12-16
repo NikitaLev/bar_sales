@@ -546,3 +546,53 @@ def close_sale(sale_id):
 
     conn.commit()
     conn.close()
+
+def cancel_sale(sale_id):
+    """
+    Переводит чек из closed в open и возвращает ингредиенты на склад.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Проверим текущий статус
+    cursor.execute("SELECT status FROM sales WHERE id = ?", (sale_id,))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        raise ValueError(f"Sale {sale_id} not found")
+
+    current_status = row[0]
+    if current_status == "open":
+        conn.close()
+        return  # уже открыт, ничего не делаем
+
+    # Получаем позиции чека
+    cursor.execute("""
+        SELECT product_id, quantity
+        FROM sale_items
+        WHERE sale_id = ?
+    """, (sale_id,))
+    items = cursor.fetchall()
+
+    # Возврат ингредиентов
+    for product_id, qty in items:
+        cursor.execute("""
+            SELECT ingredient_id, quantity
+            FROM product_ingredients
+            WHERE product_id = ?
+        """, (product_id,))
+        recipe = cursor.fetchall()
+
+        for ing_id, ing_qty in recipe:
+            total_qty = ing_qty * qty
+            cursor.execute("""
+                UPDATE ingredients
+                SET quantity = quantity + ?
+                WHERE id = ?
+            """, (total_qty, ing_id))
+
+    # Обновляем статус
+    cursor.execute("UPDATE sales SET status = 'open' WHERE id = ?", (sale_id,))
+
+    conn.commit()
+    conn.close()
