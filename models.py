@@ -462,7 +462,6 @@ def update_sale_items(sale_id, new_items):
     cur.execute("UPDATE sales SET total = ? WHERE id = ?", (total, sale_id))
 
     # корректировка склада по рецептам (по диффу)
-    # если не хотите менять склад при редактировании — закомментируйте блок ниже
     for pid, qty_diff in diff_map.items():
         if qty_diff == 0:
             continue
@@ -484,3 +483,11 @@ def update_sale_items(sale_id, new_items):
 
     conn.commit()
     conn.close()
+
+def _get_saved_total(self):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT total FROM sales WHERE id = ?", (self.sale_id,))
+    row = cur.fetchone()
+    conn.close()
+    return float(row[0]) if row else 0.0

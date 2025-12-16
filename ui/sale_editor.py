@@ -9,7 +9,7 @@ from PyQt5.QtCore import QDateTime
 from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
 from PyQt5.QtWidgets import QDateTimeEdit
 from PyQt5.QtGui import QColor, QTextDocument
-from models import get_sales,get_products, get_sale_items, update_sale_status, update_sale_items
+from models import get_sales,get_products, get_sale_items, update_sale_status, update_sale_items, _get_saved_total
 from datetime import datetime
 import datetime
 from functools import partial
@@ -325,8 +325,6 @@ class SaleForm(QDialog):
 
         items = get_sale_items(self.sale_id)
 
-
-        
         print_receipt(self, self.sale_id, guest, self.paid_checkbox.isChecked(), method, items)
 
 
@@ -334,6 +332,7 @@ class SaleEditDialog(QDialog):
     def __init__(self, sale_id, parent=None):
         super().__init__(parent)
         self.sale_id = sale_id
+        self.saved_total = _get_saved_total(self)
         self.setWindowTitle(f"Редактирование чека #{sale_id}")
         self.setMinimumSize(600, 400)
 
@@ -366,6 +365,15 @@ class SaleEditDialog(QDialog):
         self.table.horizontalHeader().setStretchLastSection(False)
         self.layout.addWidget(self.table)
 
+        # Итоговая сумма
+        self.total_label = QLabel("Итого: 0.00 BYN")
+        font = self.total_label.font()
+        font.setPointSize(14)
+        font.setBold(True)
+        self.total_label.setFont(font)
+        self.total_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.layout.addWidget(self.total_label)
+
         # Кнопки управления
         btn_row = QHBoxLayout()
         save_btn = QPushButton("Сохранить изменения")
@@ -383,11 +391,12 @@ class SaleEditDialog(QDialog):
         self.items = []
         self._load_sale_items()
         self._refresh_table()
+        self._update_total()
 
     def _load_products(self):
         # Словарь name -> (id, price)
         mapping = {}
-        for pid, name, price, *_rest in get_products():
+        for pid, name, price, *_ in get_products():
             mapping[name] = (pid, float(price))
         return mapping
 
@@ -418,6 +427,24 @@ class SaleEditDialog(QDialog):
             del_btn = QPushButton("Удалить")
             del_btn.clicked.connect(partial(self.remove_row, i))
             self.table.setCellWidget(i, 3, del_btn)
+        self._update_total()
+
+    def _update_total(self):
+        new_total = sum(it["price"] * it["qty"] for it in self.items)
+        diff = new_total - self.saved_total
+
+        # формируем строку с разницей
+        if abs(diff) < 0.001:
+            diff_text = "(без изменений)"
+        elif diff > 0:
+            diff_text = f"(+{diff:.2f})"
+        else:
+            diff_text = f"({diff:.2f})"
+
+        self.total_label.setText(
+            f"Итого: {new_total:.2f} BYN | было: {self.saved_total:.2f} BYN {diff_text}"
+        )
+
 
     def add_item(self):
         name = self.product_combo.currentText()
