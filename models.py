@@ -471,26 +471,6 @@ def update_sale_items(sale_id, new_items):
 
     cur.execute("UPDATE sales SET total = ? WHERE id = ?", (total, sale_id))
 
-    # корректировка склада по рецептам (по диффу)
-    for pid, qty_diff in diff_map.items():
-        if qty_diff == 0:
-            continue
-        # рецепт для продукта
-        cur.execute("""
-            SELECT ingredient_id, quantity
-            FROM product_ingredients
-            WHERE product_id = ?
-        """, (pid,))
-        recipe = cur.fetchall()
-        for ing_id, ing_qty in recipe:
-            delta = ing_qty * qty_diff
-            # если qty_diff > 0 — списываем больше, если < 0 — возвращаем на склад
-            cur.execute("""
-                UPDATE ingredients
-                SET quantity = quantity - ?
-                WHERE id = ?
-            """, (delta, ing_id))
-
     conn.commit()
     conn.close()
 
