@@ -238,15 +238,12 @@ class SaleEditor(QWidget):
 
             btn = QPushButton()
             if status == "open":
-                btn.setText("Списать")
-                btn.setFlat(True)  # убирает тени и объём
+                btn = QPushButton("Списать")
+                btn.setEnabled(True)
+                btn.setFlat(True)  # убираем тени
                 btn.setStyleSheet("background-color: yellow; border: none;")
                 btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-                btn.setEnabled(True)
-                btn.clicked.connect(partial(self.close_sale_action, sid, i))
-                # делаем кнопку жёлтой и растягиваем на весь столбец
-                btn.setStyleSheet("background-color: yellow;")
-                btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+                btn.clicked.connect(partial(self.confirm_close_sale, sid, i))
             else:
                 btn.setText("Списан")
                 btn.setEnabled(False)
@@ -263,6 +260,18 @@ class SaleEditor(QWidget):
         
         # после заполнения — применяем текущие фильтры
         self.apply_filters()
+        
+    def confirm_close_sale(self, sale_id, row_idx):
+        reply = QMessageBox.question(
+            self,
+            "Подтверждение списания",
+            f"Вы уверены, что хотите списать чек #{sale_id}?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            self.close_sale_action(sale_id, row_idx)
 
     def edit_sale(self, row, column):
         sale_id = int(self.table.item(row, 0).text())
@@ -316,15 +325,15 @@ class SaleForm(QDialog):
         save_btn = QPushButton("Сохранить")
         save_btn.clicked.connect(self.save)
         btn_row.addWidget(save_btn)
-
-        # НОВАЯ КНОПКА: редактирование содержимого
-        edit_items_btn = QPushButton("Редактировать")
-        edit_items_btn.clicked.connect(self.open_edit_items)
-        btn_row.addWidget(edit_items_btn)
+        
+        self.edit_items_btn = QPushButton("Редактировать")
+        self.edit_items_btn.clicked.connect(self.open_edit_items)
+        btn_row.addWidget(self.edit_items_btn)
 
         print_btn = QPushButton("Печать")
         btn_row.addWidget(print_btn)
         print_btn.clicked.connect(self.print_receipt)
+
 
         self.layout.addLayout(btn_row)
         self.setLayout(self.layout)
@@ -359,6 +368,13 @@ class SaleForm(QDialog):
                         self.date_edit.setDateTime(QDateTime(d))
                     except Exception:
                         pass
+
+                # если чек закрыт — скрываем кнопку
+                if status == "closed":
+                    self.edit_items_btn.hide()
+                else:
+                    self.edit_items_btn.show()
+
                 break
 
     def open_edit_items(self):
