@@ -89,6 +89,11 @@ def init_db():
     if "C1" not in existing_columns:
         cursor.execute("ALTER TABLE sales ADD COLUMN C1 INTEGER DEFAULT 1;")
         cursor.execute("UPDATE sales SET C1 = 1 WHERE C1 IS NULL;")
+        
+    # Миграция: если таблица sales уже существует, но колонки status нет — добавить
+    if "status" not in existing_columns:
+        cursor.execute("ALTER TABLE sales ADD COLUMN status TEXT DEFAULT 'closed'")
+        conn.commit()
 
     conn.commit()
     conn.close()
