@@ -96,7 +96,7 @@ class Report1CViewer(QWidget):
         rows = []
         raw_meta = []
         for sale in sales:
-            sale_id, date_raw, total, paid, method, guest, c1  = sale
+            sale_id, date_raw, total, paid, method, guest, c1, status  = sale
 
             sale_date_obj = None
             if isinstance(date_raw, str):
