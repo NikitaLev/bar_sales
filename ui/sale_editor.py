@@ -1,6 +1,6 @@
 import os
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QSpinBox, QTreeWidget,
+    QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QSpinBox, QTreeWidget, QSizePolicy,
     QPushButton, QHBoxLayout, QLineEdit, QDateEdit, QTreeWidgetItem, QDialog, QLabel, QComboBox, QCheckBox, QMessageBox
 )
 from PyQt5.QtCore import Qt
@@ -10,7 +10,7 @@ from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
 from PyQt5.QtWidgets import QDateTimeEdit
 from PyQt5.QtGui import QColor, QTextDocument
 from models import (get_sales,get_products,get_products_by_category, get_categories, get_sale_items_update,
-                    get_sale_items, update_sale_status, update_sale_items, _get_saved_total
+                    get_sale_items, update_sale_status, update_sale_items, _get_saved_total, close_sale
                     )
 from datetime import datetime
 import datetime
@@ -86,23 +86,37 @@ class SaleEditor(QWidget):
         self.guest_filter.setPlaceholderText("имя гостя")
         fl.addWidget(self.guest_filter)
 
-        # после fl.addWidget(self.guest_filter)
-        apply_btn = QPushButton("Применить фильтр")
-        fl.addWidget(apply_btn)
+        self.status_filter = QComboBox()
+        self.status_filter.addItem("Все")
+        self.status_filter.addItem("open")
+        self.status_filter.addItem("closed")
 
-        # подключаем фильтрацию только по клику
+        fl.addWidget(QLabel("Статус"))
+        fl.addWidget(self.status_filter)
+
+
+        # отдельный контейнер для кнопок
+        btn_box = QVBoxLayout()
+
+        apply_btn = QPushButton("Применить фильтр")
         apply_btn.clicked.connect(self.apply_filters)
+        btn_box.addWidget(apply_btn)
 
         reset_btn = QPushButton("Сбросить фильтры")
-        fl.addWidget(reset_btn)
         reset_btn.clicked.connect(self.reset_filters)
+        btn_box.addWidget(reset_btn)
+
+        # добавляем контейнер кнопок в общий layout
+        fl.addLayout(btn_box)
 
         self.layout.addLayout(fl)
 
+
         self.table = QTableWidget()
-        self.table.setColumnCount(6)  # ✅ добавлена колонка "Гость"
-        self.table.setHorizontalHeaderLabels(["ID", "Дата", "Сумма", "Оплачено", "Метод", "Гость"])
+        self.table.setColumnCount(8)  # ✅ добавлена колонка "Гость"
+        self.table.setHorizontalHeaderLabels(["ID", "Дата", "Сумма", "Оплачено", "Метод", "Гость", "Статус", "_hidden_status"])
         self.table.setSortingEnabled(True)
+        self.table.setColumnHidden(7, True)
         self.table.cellDoubleClicked.connect(self.edit_sale)
         self.table.setColumnWidth(1, 150)
         self.layout.addWidget(self.table)
@@ -126,6 +140,7 @@ class SaleEditor(QWidget):
         self.paid_filter.setCurrentIndex(0)
         self.method_filter.setCurrentIndex(0)
         self.guest_filter.clear()
+        self.status_filter.setCurrentIndex(0)
         self.apply_filters()
 
 
@@ -136,6 +151,8 @@ class SaleEditor(QWidget):
         pf = self.paid_filter.currentText()
         mf = self.method_filter.currentText()
         gf = self.guest_filter.text().lower().strip()
+        sf = self.status_filter.currentText()
+
 
         # диапазон суммы
         sm = None
@@ -172,6 +189,7 @@ class SaleEditor(QWidget):
             paid = self.table.item(row, 3).text()
             method = self.table.item(row, 4).text()
             guest = self.table.item(row, 5).text().lower()
+            status = self.table.item(row, 7).text()
 
             # текущее значение суммы
             try:
@@ -193,6 +211,9 @@ class SaleEditor(QWidget):
             if gf and gf not in guest:
                 show = False
 
+            if sf != "Все" and status != sf:
+                show = False
+
             self.table.setRowHidden(row, not show)
     def try_float(s):
         try: return float(s.strip())
@@ -202,13 +223,39 @@ class SaleEditor(QWidget):
     def load_sales(self):
         sales = get_sales()
         self.table.setRowCount(len(sales))
-        for i, (sid, date, total, paid, method, guest_name, c1) in enumerate(sales):
+        for i, (sid, date, total, paid, method, guest_name, c1, status) in enumerate(sales):
             self.table.setItem(i, 0, QTableWidgetItem(str(sid)))
             self.table.setItem(i, 1, QTableWidgetItem(date))
             self.table.setItem(i, 2, QTableWidgetItem(f"{total:.2f} BYN"))
             self.table.setItem(i, 3, QTableWidgetItem("Да" if paid else "Нет"))
             self.table.setItem(i, 4, QTableWidgetItem(method))
             self.table.setItem(i, 5, QTableWidgetItem(guest_name))  # ✅ имя гостя
+
+            cell_widget = QWidget()
+            layout = QHBoxLayout(cell_widget)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setAlignment(Qt.AlignCenter)
+
+            btn = QPushButton()
+            if status == "open":
+                btn.setText("Списать")
+                btn.setFlat(True)  # убирает тени и объём
+                btn.setStyleSheet("background-color: yellow; border: none;")
+                btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+                btn.setEnabled(True)
+                btn.clicked.connect(partial(self.close_sale_action, sid, i))
+                # делаем кнопку жёлтой и растягиваем на весь столбец
+                btn.setStyleSheet("background-color: yellow;")
+                btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            else:
+                btn.setText("Списан")
+                btn.setEnabled(False)
+                btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+            layout.addWidget(btn)
+            self.table.setCellWidget(i, 6, cell_widget)
+
+            self.table.setItem(i, 7, QTableWidgetItem(status))  # ✅ имя гостя
 
             color = QColor(200, 255, 200) if paid else QColor(255, 200, 200)
             for col in range(6):
@@ -222,6 +269,15 @@ class SaleEditor(QWidget):
         dialog = SaleForm(sale_id)
         dialog.exec_()
         self.load_sales()
+
+    def close_sale_action(self, sale_id, row_idx):
+        try:
+            close_sale(sale_id)  # вызываем функцию из models.py
+            QMessageBox.information(self, "Готово", f"Чек #{sale_id} проведён и списан.")
+            self.load_sales()
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось провести чек:\n{e}")
+
 
 
 class SaleForm(QDialog):
@@ -286,7 +342,7 @@ class SaleForm(QDialog):
 
     def load_status(self):
         sales = get_sales()
-        for sid, date, total, paid, method, guest_name, c1 in sales:
+        for sid, date, total, paid, method, guest_name, c1, status in sales:
             if sid == self.sale_id:
                 self.paid_checkbox.setChecked(bool(paid))
                 self.payment_method.setCurrentText(method)

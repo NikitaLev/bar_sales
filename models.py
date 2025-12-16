@@ -40,45 +40,54 @@ def get_ingredients_for_product(product_id):
     conn.close()
     return result
 
-def create_sale(items, paid, method, guest_name="Гость", c1=True):
+def create_sale(items, paid, method, guest_name="Гость", c1=True, status="closed"):
     """
     items: список кортежей (product_id, price, qty)
     paid: булево или 0/1
     method: строка или код метода оплаты
     guest_name: имя гостя
     C1: булево значение для поля C1 (по умолчанию True)
+    status: 'open' или 'closed'
     """
     conn = get_connection()
     cursor = conn.cursor()
     total = sum(price * qty for _, price, qty in items)
 
     cursor.execute("""
-        INSERT INTO sales (date, total, paid, payment_method, guest_name, C1)
-        VALUES (datetime('now', 'localtime'), ?, ?, ?, ?, ?)
-    """, (total, int(paid), method, guest_name, int(bool(c1))))
+        INSERT INTO sales (date, total, paid, payment_method, guest_name, C1, status)
+        VALUES (datetime('now', 'localtime'), ?, ?, ?, ?, ?,?)
+    """, (total, int(paid), method, guest_name, int(bool(c1)), status))
 
     sale_id = cursor.lastrowid
 
+    # сохраняем позиции
     for product_id, price, qty in items:
         cursor.execute("""
             INSERT INTO sale_items (sale_id, product_id, quantity)
             VALUES (?, ?, ?)
         """, (sale_id, product_id, qty))
 
-        cursor.execute("""
-            SELECT ingredient_id, quantity
-            FROM product_ingredients
-            WHERE product_id = ?
-        """, (product_id,))
-        recipe = cursor.fetchall()
-
-        for ing_id, ing_qty in recipe:
-            total_qty = ing_qty * qty
+    if status == "closed":
+        for product_id, price, qty in items:
             cursor.execute("""
-                UPDATE ingredients
-                SET quantity = quantity - ?
-                WHERE id = ?
-            """, (total_qty, ing_id))
+                INSERT INTO sale_items (sale_id, product_id, quantity)
+                VALUES (?, ?, ?)
+            """, (sale_id, product_id, qty))
+
+            cursor.execute("""
+                SELECT ingredient_id, quantity
+                FROM product_ingredients
+                WHERE product_id = ?
+            """, (product_id,))
+            recipe = cursor.fetchall()
+
+            for ing_id, ing_qty in recipe:
+                total_qty = ing_qty * qty
+                cursor.execute("""
+                    UPDATE ingredients
+                    SET quantity = quantity - ?
+                    WHERE id = ?
+                """, (total_qty, ing_id))
 
     conn.commit()
     conn.close()
@@ -88,7 +97,7 @@ def get_sales():
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT id, date, total, paid, payment_method, guest_name, C1
+        SELECT id, date, total, paid, payment_method, guest_name, C1, status
         FROM sales
         ORDER BY date DESC
     """)  # ✅ добавлен guest_name
@@ -505,3 +514,55 @@ def get_sale_items_update(sale_id):
     result = cursor.fetchall()
     conn.close()
     return result  # [(product_id, name, qty, price), ...]
+
+
+#Смена статуса чека на "closed" по id
+def close_sale(sale_id):
+    """
+    Переводит чек из open в closed и выполняет списание ингредиентов.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Проверим текущий статус
+    cursor.execute("SELECT status FROM sales WHERE id = ?", (sale_id,))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        raise ValueError(f"Sale {sale_id} not found")
+
+    current_status = row[0]
+    if current_status == "closed":
+        conn.close()
+        return  # уже проведён, ничего не делаем
+
+    # Получаем позиции чека
+    cursor.execute("""
+        SELECT product_id, quantity
+        FROM sale_items
+        WHERE sale_id = ?
+    """, (sale_id,))
+    items = cursor.fetchall()
+
+    # Списание ингредиентов
+    for product_id, qty in items:
+        cursor.execute("""
+            SELECT ingredient_id, quantity
+            FROM product_ingredients
+            WHERE product_id = ?
+        """, (product_id,))
+        recipe = cursor.fetchall()
+
+        for ing_id, ing_qty in recipe:
+            total_qty = ing_qty * qty
+            cursor.execute("""
+                UPDATE ingredients
+                SET quantity = quantity - ?
+                WHERE id = ?
+            """, (total_qty, ing_id))
+
+    # Обновляем статус
+    cursor.execute("UPDATE sales SET status = 'closed' WHERE id = ?", (sale_id,))
+
+    conn.commit()
+    conn.close()

@@ -99,10 +99,16 @@ class MainWindow(QWidget):
         paid_vbox.setSpacing(4)
         paid_vbox.addWidget(self.paid_checkbox)
         paid_vbox.addWidget(self.C1_checkbox)
+        paid_vbox.addWidget(self.C1_checkbox)
         paid_vbox.setAlignment(self.paid_checkbox, Qt.AlignTop)
 
         payment_row.addWidget(QLabel("Гость"))
         payment_row.addWidget(self.guest_name_input)
+
+        self.open_checkbox = QCheckBox("Открытый чек")
+        self.open_checkbox.setChecked(False)  # по умолчанию выключен
+        payment_row.addWidget(self.open_checkbox)
+
         payment_row.addWidget(QLabel("Метод оплаты:"))
         payment_row.addWidget(self.payment_method)
 
@@ -329,13 +335,19 @@ class MainWindow(QWidget):
         if not self.sale_items:
             QMessageBox.warning(self, "Ошибка", "Счёт пуст.")
             return
+        
         paid = self.paid_checkbox.isChecked()
         c1 = self.C1_checkbox.isChecked()
         method = self.payment_method.currentText()
         guest_name = self.guest_name_input.text().strip() or "Гость"
+
+        # определяем статус
+        status = "open" if self.open_checkbox.isChecked() else "closed"
+
         items_for_db = [(pid, price, qty) for pid, _, price, qty in self.sale_items]
+
         try:
-            create_sale(items_for_db, paid, method, guest_name, c1)
+            create_sale(items_for_db, paid, method, guest_name, c1, status)
             self.on_print()
             QMessageBox.information(self, "Готово", "Продажа завершена.")
             self.sale_items = []
