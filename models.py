@@ -109,6 +109,7 @@ def get_sale_items(sale_id):
     conn.close()
     return result
 
+
 def update_sale_status(sale_id, paid, method, new_date=None):
     conn = get_connection()
     cursor = conn.cursor()
@@ -491,3 +492,16 @@ def _get_saved_total(self):
     row = cur.fetchone()
     conn.close()
     return float(row[0]) if row else 0.0
+
+def get_sale_items_update(sale_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT products.id, products.name, sale_items.quantity, products.price
+        FROM sale_items
+        JOIN products ON sale_items.product_id = products.id
+        WHERE sale_items.sale_id = ?
+    """, (sale_id,))
+    result = cursor.fetchall()
+    conn.close()
+    return result  # [(product_id, name, qty, price), ...]

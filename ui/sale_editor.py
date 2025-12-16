@@ -1,7 +1,7 @@
 import os
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QSpinBox,
-    QPushButton, QHBoxLayout, QLineEdit, QDateEdit, QDialog, QLabel, QComboBox, QCheckBox, QMessageBox
+    QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QSpinBox, QTreeWidget,
+    QPushButton, QHBoxLayout, QLineEdit, QDateEdit, QTreeWidgetItem, QDialog, QLabel, QComboBox, QCheckBox, QMessageBox
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtCore import QDate
@@ -9,7 +9,9 @@ from PyQt5.QtCore import QDateTime
 from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
 from PyQt5.QtWidgets import QDateTimeEdit
 from PyQt5.QtGui import QColor, QTextDocument
-from models import get_sales,get_products, get_sale_items, update_sale_status, update_sale_items, _get_saved_total
+from models import (get_sales,get_products,get_products_by_category, get_categories, get_sale_items_update,
+                    get_sale_items, update_sale_status, update_sale_items, _get_saved_total
+                    )
 from datetime import datetime
 import datetime
 from functools import partial
@@ -341,10 +343,16 @@ class SaleEditDialog(QDialog):
         # Панель добавления позиции
         add_row = QHBoxLayout()
         add_row.addWidget(QLabel("Товар:"))
-        self.product_combo = QComboBox()
-        self.products = self._load_products()  # {name: (id, price)}
-        self.product_combo.addItems(list(self.products.keys()))
-        add_row.addWidget(self.product_combo)
+        
+        
+        self.product_tree = QTreeWidget()
+        self.product_tree.setHeaderLabels(["Товар", "Цена"])
+        self.product_tree.setColumnWidth(0, 200)
+        self.layout.addWidget(QLabel("Выбор товара"))
+        self.layout.addWidget(self.product_tree)
+
+        self._populate_product_tree()
+
 
         add_row.addWidget(QLabel("Кол-во:"))
         self.qty_spin = QSpinBox()
@@ -402,10 +410,10 @@ class SaleEditDialog(QDialog):
 
     def _load_sale_items(self):
         self.items.clear()
-        for name, qty, price in get_sale_items(self.sale_id):
+        for pid, name, qty, price in get_sale_items_update(self.sale_id):
             qty_val = int(qty) if str(qty).isdigit() else int(float(qty))
             self.items.append({
-                "product_id": self.products.get(name, (None, float(price)))[0],
+                "product_id": pid,
                 "name": name,
                 "price": float(price),
                 "qty": qty_val
@@ -445,26 +453,44 @@ class SaleEditDialog(QDialog):
             f"Итого: {new_total:.2f} BYN | было: {self.saved_total:.2f} BYN {diff_text}"
         )
 
+    def _populate_product_tree(self):
+        self.product_tree.clear()
+        categories = get_categories()  # [(id, name)]
+        for cid, cname in categories:
+            cat_item = QTreeWidgetItem([cname])
+            self.product_tree.addTopLevelItem(cat_item)
+
+            products = get_products_by_category(cid)  # [(pid, name, price, image_path)]
+            for pid, name, price, _ in products:
+                prod_item = QTreeWidgetItem([name, f"{price:.2f}"])
+                prod_item.setData(0, Qt.UserRole, (pid, price))
+                cat_item.addChild(prod_item)
+
+        self.product_tree.expandAll()
 
     def add_item(self):
-        name = self.product_combo.currentText()
-        pid, price = self.products[name]
+        item = self.product_tree.currentItem()
+        if not item or not item.parent():
+            QMessageBox.warning(self, "Ошибка", "Выберите товар, а не категорию.")
+            return
+
+        pid, price = item.data(0, Qt.UserRole)
+        name = item.text(0)
         qty = int(self.qty_spin.value())
 
-        # если уже в списке — увеличим количество
         for it in self.items:
             if it["product_id"] == pid:
                 it["qty"] += qty
                 self._refresh_table()
                 return
 
-        self.items.append({
-            "product_id": pid,
-            "name": name,
-            "price": float(price),
-            "qty": qty
-        })
+        self.items.append({"product_id": pid, 
+                           "name": name, 
+                           "price": price, 
+                           "qty": qty})
         self._refresh_table()
+        self._update_total()
+
 
     def remove_row(self, idx):
         if 0 <= idx < len(self.items):
