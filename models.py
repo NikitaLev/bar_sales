@@ -60,12 +60,6 @@ def create_sale(items, paid, method, guest_name="Гость", c1=True, status="c
 
     sale_id = cursor.lastrowid
 
-    # сохраняем позиции
-    for product_id, price, qty in items:
-        cursor.execute("""
-            INSERT INTO sale_items (sale_id, product_id, quantity)
-            VALUES (?, ?, ?)
-        """, (sale_id, product_id, qty))
 
     if status == "closed":
         for product_id, price, qty in items:
