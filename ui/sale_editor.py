@@ -1,6 +1,6 @@
 import os
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QSpinBox, QTreeWidget, QSizePolicy,
+    QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QSpinBox, QTreeWidget, QSizePolicy, QCompleter,
     QPushButton, QHBoxLayout, QLineEdit, QDateEdit, QTreeWidgetItem, QDialog, QLabel, QComboBox, QCheckBox, QMessageBox
 )
 from PyQt5.QtCore import Qt
@@ -440,7 +440,17 @@ class SaleEditDialog(QDialog):
         # Панель добавления позиции
         add_row = QHBoxLayout()
         add_row.addWidget(QLabel("Товар:"))
-        
+
+        # Панель поиска
+        search_row = QHBoxLayout()
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Поиск товара...")
+        self.search_input.setClearButtonEnabled(True)
+        search_row.addWidget(QLabel("Поиск:"))
+        search_row.addWidget(self.search_input)
+
+        self.layout.addLayout(search_row)
+
         
         self.product_tree = QTreeWidget()
         self.product_tree.setHeaderLabels(["Товар", "Цена"])
@@ -450,6 +460,19 @@ class SaleEditDialog(QDialog):
 
         self._populate_product_tree()
 
+        all_names = [] 
+        for cid, cname in get_categories(): 
+            for pid, name, price, _ in get_products_by_category(cid): 
+                all_names.append(name) 
+
+        self.completer = QCompleter(sorted(set(all_names))) 
+        self.completer.setCaseSensitivity(Qt.CaseInsensitive) 
+        self.completer.setFilterMode(Qt.MatchContains) 
+        self.search_input.setCompleter(self.completer)
+
+        self.search_input.textChanged.connect(self.apply_search_filter)
+
+        self.search_input.returnPressed.connect(self.add_from_search)
 
         add_row.addWidget(QLabel("Кол-во:"))
         self.qty_spin = QSpinBox()
@@ -504,6 +527,45 @@ class SaleEditDialog(QDialog):
         for pid, name, price, *_ in get_products():
             mapping[name] = (pid, float(price))
         return mapping
+    
+    def apply_search_filter(self, query: str):
+        q = query.strip().lower()
+        root_count = self.product_tree.topLevelItemCount()
+
+        for i in range(root_count):
+            cat_item = self.product_tree.topLevelItem(i)
+            match_in_category = False
+            for j in range(cat_item.childCount()):
+                prod_item = cat_item.child(j)
+                name = prod_item.text(0).lower()
+                visible = (q in name) if q else True
+                prod_item.setHidden(not visible)
+                if visible:
+                    match_in_category = True
+            # скрываем категорию, если внутри нет совпадений
+            cat_item.setHidden(not match_in_category and bool(q))
+
+    def add_from_search(self):
+        query = self.search_input.text().strip().lower()
+        if not query:
+            return
+        # ищем первый совпавший продукт
+        for cid, cname in get_categories():
+            for pid, name, price, _ in get_products_by_category(cid):
+                if query in name.lower():
+                    self.items.append({
+                        "product_id": pid,
+                        "name": name,
+                        "price": float(price),
+                        "qty": 1
+                    })
+                    self._refresh_table()
+                    self._update_total()
+                    self.search_input.clear()
+                    return
+        QMessageBox.information(self, "Не найдено", "Нет совпадений для запроса.")
+
+
 
     def _load_sale_items(self):
         self.items.clear()
