@@ -82,6 +82,12 @@ def create_sale(items, paid, method, guest_name="Гость", c1=True, status="c
                     SET quantity = quantity - ?
                     WHERE id = ?
                 """, (total_qty, ing_id))
+    else:
+        for product_id, price, qty in items:
+            cursor.execute("""
+                INSERT INTO sale_items (sale_id, product_id, quantity)
+                VALUES (?, ?, ?)
+            """, (sale_id, product_id, qty))
 
     conn.commit()
     conn.close()
